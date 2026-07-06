@@ -29,6 +29,7 @@ class GroqLLM:
 
         self._client = Groq(api_key=api_key)
         self.model = model
+        self.total_tokens = 0  # cumulative prompt+completion, for cost visibility
 
     def chat(self, messages: list[dict], tools: list[dict]) -> LLMReply:
         response = self._client.chat.completions.create(
@@ -37,7 +38,10 @@ class GroqLLM:
             tools=tools,
             tool_choice="auto",
             temperature=0.2,
+            max_tokens=600,  # replies are tool calls or short prose
         )
+        if response.usage is not None:
+            self.total_tokens += response.usage.total_tokens
         msg = response.choices[0].message
         calls = []
         for tc in msg.tool_calls or []:

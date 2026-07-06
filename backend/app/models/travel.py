@@ -49,3 +49,6 @@ class HotelOption(BaseModel):
     check_out_time: str | None = None
     link: str | None = None
     thumbnail: str | None = None
+    # Google Maps search link (name + city); set by the output assembler,
+    # which knows the destination city.
+    maps_url: str | None = None

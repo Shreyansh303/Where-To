@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: the `dark` class on <html> drives all dark: variants. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+}
+
+.dark {
+  --background: #0b1220;
+  --foreground: #e2e8f0;
 }
 
 @theme inline {
@@ -18,16 +26,6 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
 @keyframes fade-slide {
   from {
     opacity: 0;
@@ -37,10 +35,6 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.animate-float {
-  animation: float 2.4s ease-in-out infinite;
 }
 
 .animate-fade-slide {

@@ -29,18 +29,13 @@ EmitFn = Callable[[str, str], None]
 
 MAX_AGENT_ITERATIONS = 16
 
-SYSTEM_PROMPT = """You are a meticulous travel-planning agent. Hard rules:
-- You NEVER invent flights, hotels, places, prices or times. You only select \
-options returned by your tools, referencing their exact ids.
-- Required flow: search_flights -> get_return_flights(your chosen outbound) \
--> search_hotels -> search_attractions -> finalize_plan.
-- Return-flight prices are FINAL round-trip totals. Flight total + hotel \
-total must fit the trip budget; leave room for food and activities.
-- Prefer well-rated options; match the traveler's interests when picking \
-attractions and rank them by priority.
-- In finalize_plan commentary, write 2-3 warm sentences about why the picks \
-fit. Do NOT state specific prices or times there.
-- If a tool reports an error, follow its advice and keep going."""
+SYSTEM_PROMPT = """You are a travel-planning agent. Never invent data — only \
+select options returned by tools, by their exact ids. Flow: search_flights -> \
+get_return_flights(chosen outbound id) -> search_hotels -> search_attractions \
+-> finalize_plan. Return prices are FINAL round-trip totals; flights + hotel \
+must fit the budget with room for food. Prefer well-rated options matching \
+the traveler's interests; rank poi_ids by priority, ~5 per day. commentary: \
+2-3 warm sentences, no prices or times. If a tool errors, follow its advice."""
 
 
 class OrchestrationError(Exception):
@@ -50,14 +45,10 @@ class OrchestrationError(Exception):
 def _context_message(request: TripRequest, currency: str) -> str:
     interests = ", ".join(request.interests) or "general sightseeing"
     return (
-        f"Plan a round trip {request.origin} -> {request.destination} "
-        f"({request.destination_city}), departing {request.departure_date}, "
-        f"returning {request.return_date} ({request.nights} nights, "
-        f"{request.full_days} full sightseeing day(s)). "
-        f"{request.travelers} traveler(s). Total budget {request.budget:.0f} {currency}. "
-        f"Interests: {interests}. "
-        f"Guideline split: ~45% flights, ~35% hotel, rest for activities and food. "
-        f"Start by searching flights."
+        f"Trip: {request.origin}->{request.destination} ({request.destination_city}), "
+        f"{request.departure_date} to {request.return_date}, {request.full_days} sightseeing day(s), "
+        f"{request.travelers} traveler(s), budget {request.budget:.0f} {currency} "
+        f"(~45% flights / ~35% hotel). Interests: {interests}. Start with search_flights."
     )
 
 
@@ -165,7 +156,20 @@ def run_pipeline(
     except ApiError as exc:
         data_quality.append(DataQualityNote(source="places", level="degraded", message=f"restaurant search failed: {exc}"))
 
-    selected_pois = [store.get_poi(pid, "attraction") for pid in selections.poi_ids]
+    # Deterministic top-up: if the LLM picked fewer than ~5 attractions per
+    # day, fill from the remaining grounded pool by value so the solver has
+    # enough material for dense days. Still 100% real, store-registered POIs.
+    selected_ids = list(dict.fromkeys(selections.poi_ids))
+    target = 5 * request.full_days
+    if len(selected_ids) < target:
+        chosen = set(selected_ids)
+        pool = sorted(
+            (p for p in store.all_of_prefix("poi") if isinstance(p, POI) and p.id not in chosen),
+            key=lambda p: -p.value_score,
+        )
+        selected_ids += [p.id for p in pool[: target - len(selected_ids)]]
+
+    selected_pois = [store.get_poi(pid, "attraction") for pid in selected_ids]
     hotel = store.get_hotel(selections.hotel_id) if selections.hotel_id else None
     fallback_points = [p.location for p in selected_pois] or [r.location for r in restaurants]
     hotel_location = (hotel.location if hotel else None) or (

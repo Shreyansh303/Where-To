@@ -19,7 +19,10 @@ from ..clients import ApiError, FlightsClient, HotelsClient, PlacesClient
 from ..grounding import GroundingError, GroundingStore, SelectionError, TripSelections, validate_selections
 from ..models import DataQualityNote, FlightOption, HotelOption, POI, TripRequest
 
-MAX_OPTIONS_SHOWN = 8
+# Token economy: every tool result is re-sent to the LLM on each subsequent
+# turn, so summaries and schema descriptions are kept aggressively terse.
+# Groq free tier is ~12K tokens/minute — the whole loop must fit well under.
+MAX_OPTIONS_SHOWN = 6
 MAX_BUDGET_REJECTIONS = 2
 
 TOOL_SCHEMAS = [
@@ -27,12 +30,10 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "search_flights",
-            "description": "Search real round-trip flight options (outbound leg). Returns options with ids, total round-trip prices, durations and stops.",
+            "description": "Round-trip flight options (outbound leg), with ids and round-trip prices.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "max_price": {"type": "integer", "description": "Optional cap on round-trip price"}
-                },
+                "properties": {"max_price": {"type": "integer"}},
                 "required": [],
             },
         },
@@ -41,7 +42,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "get_return_flights",
-            "description": "Get return-leg options matching a chosen outbound flight. Must be called with an outbound id from search_flights. The returned prices are the FINAL round-trip totals.",
+            "description": "Return legs matching a chosen outbound id. Prices are FINAL round-trip totals.",
             "parameters": {
                 "type": "object",
                 "properties": {"outbound_flight_id": {"type": "string"}},
@@ -53,12 +54,10 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "search_hotels",
-            "description": "Search real hotels for the whole stay. Returns options with ids, total price for the stay, rating and amenities.",
+            "description": "Hotels for the whole stay, with ids and total stay prices.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "max_price": {"type": "integer", "description": "Optional cap on the total price for the stay"}
-                },
+                "properties": {"max_price": {"type": "integer"}},
                 "required": [],
             },
         },
@@ -67,7 +66,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "search_attractions",
-            "description": "Search real attractions matching the traveler's interests. Returns options with ids, ratings and visit-time estimates.",
+            "description": "Attractions matching the traveler's interests, with ids and ratings.",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
@@ -75,15 +74,15 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "finalize_plan",
-            "description": "Submit your final selections by id. Everything is validated against real API data; on error, fix ALL reported problems and call again.",
+            "description": "Submit final selections by id. Validated against real data; on error fix everything and retry.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "outbound_flight_id": {"type": "string"},
                     "return_flight_id": {"type": "string"},
-                    "hotel_id": {"type": ["string", "null"], "description": "null only if hotel search failed"},
-                    "poi_ids": {"type": "array", "items": {"type": "string"}, "description": "Chosen attraction ids, ranked by priority"},
-                    "commentary": {"type": "string", "description": "2-3 sentences on why these picks fit the traveler"},
+                    "hotel_id": {"type": ["string", "null"]},
+                    "poi_ids": {"type": "array", "items": {"type": "string"}},
+                    "commentary": {"type": "string"},
                 },
                 "required": ["outbound_flight_id", "return_flight_id", "poi_ids"],
             },
@@ -96,13 +95,12 @@ def _flight_summary(f: FlightOption) -> dict:
     return {
         "id": f.id,
         "price": f.price,
-        "currency": f.currency,
-        "duration_minutes": f.total_duration_minutes,
+        "hrs": round(f.total_duration_minutes / 60, 1),
         "stops": len(f.layover_airports),
-        "layovers": f.layover_airports,
-        "airlines": sorted({s.airline for s in f.segments}),
-        "departs": f.segments[0].departure_time,
-        "arrives": f.segments[-1].arrival_time,
+        "via": ",".join(f.layover_airports) or None,
+        "air": "/".join(sorted({s.airline for s in f.segments})),
+        "dep": f.segments[0].departure_time,
+        "arr": f.segments[-1].arrival_time,
     }
 
 
@@ -110,13 +108,9 @@ def _hotel_summary(h: HotelOption) -> dict:
     return {
         "id": h.id,
         "name": h.name,
-        "total_for_stay": h.total_rate,
-        "per_night": h.rate_per_night,
-        "currency": h.currency,
+        "price": h.total_rate or h.rate_per_night,
         "rating": h.rating,
-        "reviews": h.review_count,
         "stars": h.hotel_class,
-        "amenities": h.amenities[:5],
     }
 
 
@@ -125,10 +119,8 @@ def _poi_summary(p: POI) -> dict:
         "id": p.id,
         "name": p.name,
         "rating": p.rating,
-        "reviews": p.review_count,
-        "matches_interests": p.interest_tags,
-        "visit_minutes": p.est_visit_minutes,
-        "price_level": p.price_level,
+        "tags": "|".join(p.interest_tags) or None,
+        "mins": p.est_visit_minutes,
     }
 
 
@@ -160,10 +152,13 @@ class Toolbox:
         if handler is None:
             return json.dumps({"error": f"unknown tool '{name}'"})
         try:
-            return json.dumps(handler(args))
+            return json.dumps(handler(args), separators=(",", ":"))
         except ApiError as exc:
             self._note(exc.source, "failed", str(exc))
-            return json.dumps({"error": str(exc), "advice": "this data source is unavailable; continue without it"})
+            return json.dumps(
+                {"error": str(exc), "advice": "source unavailable; continue without it"},
+                separators=(",", ":"),
+            )
 
     def _note(self, source: str, level: str, message: str) -> None:
         self.data_quality.append(DataQualityNote(source=source, level=level, message=message))
@@ -183,7 +178,7 @@ class Toolbox:
         self.store.add_all("flight_out", options)
         self._outbound_searched = True
         shown = sorted(options, key=lambda f: f.price)[:MAX_OPTIONS_SHOWN]
-        return {"options": [_flight_summary(f) for f in shown], "note": "prices are round-trip totals for all travelers"}
+        return {"options": [_flight_summary(f) for f in shown], "note": "round-trip totals, all travelers"}
 
     def _get_return_flights(self, args: dict) -> dict:
         self.emit("flights_return", "Matching return flights…")
@@ -205,7 +200,7 @@ class Toolbox:
         self.store.add_all("flight_ret", options)
         self._returns_searched = True
         shown = sorted(options, key=lambda f: f.price)[:MAX_OPTIONS_SHOWN]
-        return {"options": [_flight_summary(f) for f in shown], "note": "these prices are FINAL round-trip totals"}
+        return {"options": [_flight_summary(f) for f in shown], "note": "FINAL round-trip totals"}
 
     def _search_hotels(self, args: dict) -> dict:
         self.emit("hotels", "Haggling with hotels…")
@@ -253,12 +248,12 @@ class Toolbox:
             self._places_failed = True
             raise ApiError("places", "all attraction searches failed")
         self.store.add_all("poi", pois)
-        per_day = 4
-        cap = min(len(pois), max(per_day * self.request.full_days + 4, 8))
+        per_day = 5
+        cap = min(len(pois), min(per_day * self.request.full_days + 5, 24))
         shown = sorted(pois, key=lambda p: -p.value_score)[:cap]
         return {
             "options": [_poi_summary(p) for p in shown],
-            "note": f"pick about {per_day} per day for {self.request.full_days} day(s), ranked by priority",
+            "note": f"pick ~{per_day}/day for {self.request.full_days} day(s), ranked",
         }
 
     def _finalize_plan(self, args: dict) -> dict:

@@ -47,6 +47,8 @@ class PlanDay(BaseModel):
     date: Date
     weekday_name: str
     stops: list[ResolvedStop] = []
+    # Real, unscheduled POIs near this day's route — "if you have time" ideas.
+    extras: list[POI] = []
     commentary: str | None = None  # LLM prose — clearly scoped, no facts
 
 

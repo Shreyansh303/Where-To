@@ -1,6 +1,7 @@
 from typing import Literal
+from urllib.parse import quote
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from .core import LatLng, OpeningHours
 
@@ -26,3 +27,9 @@ class POI(BaseModel):
         POIs first when a day overflows."""
         base = self.rating if self.rating is not None else 3.0
         return base * (1.0 + 0.3 * len(self.interest_tags))
+
+    @computed_field  # serialized into API responses for the frontend link chip
+    @property
+    def maps_url(self) -> str:
+        base = f"https://www.google.com/maps/search/?api=1&query={quote(self.name)}"
+        return f"{base}&query_place_id={self.place_id}" if self.place_id else base

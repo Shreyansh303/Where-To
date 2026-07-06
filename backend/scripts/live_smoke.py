@@ -57,6 +57,7 @@ def one_run(label: str, settings: Settings):
     names = ["flights", "hotels", "places", "routes"]
     calls = {n: c.calls_made for n, c in zip(names, clients)}
     print(f"\n{label}: real HTTP calls = {calls} (total {sum(calls.values())}), cache hits = {cache.hits}")
+    print(f"{label}: Groq tokens used = {llm.total_tokens}")
     return plan
 
 

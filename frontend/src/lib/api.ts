@@ -54,6 +54,7 @@ export interface HotelOption {
   check_out_time: string | null;
   link: string | null;
   thumbnail: string | null;
+  maps_url: string | null;
 }
 
 export interface POI {
@@ -67,6 +68,7 @@ export interface POI {
   address: string | null;
   interest_tags: string[];
   est_visit_minutes: number;
+  maps_url: string;
 }
 
 export interface ResolvedStop {
@@ -84,6 +86,7 @@ export interface PlanDay {
   date: string;
   weekday_name: string;
   stops: ResolvedStop[];
+  extras: POI[];
   commentary: string | null;
 }
 

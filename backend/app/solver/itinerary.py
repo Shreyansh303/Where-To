@@ -256,6 +256,14 @@ def _schedule_day(
         current_idx = idx[poi.id]
         current_loc = poi.location
 
+    # Lunch can be missed entirely when a day's attractions all end before
+    # the trigger time — insert it after the loop so short days still eat.
+    if stops and not lunch_done:
+        lunch = _pick_restaurant(inp.restaurants, current_loc, used_restaurants)
+        if lunch:
+            t = _insert_meal(stops, lunch, "lunch", max(t, LUNCH_TRIGGER), current_loc, 70)
+            current_loc = lunch.location
+
     if stops and t + 90 <= DINNER_LATEST_END:
         dinner = _pick_restaurant(inp.restaurants, current_loc, used_restaurants)
         if dinner:

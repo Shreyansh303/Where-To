@@ -63,27 +63,29 @@ export default function HomePage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100";
-  const labelClass = "mb-1.5 block text-sm font-medium text-slate-600";
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-950";
+  const labelClass =
+    "mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-400";
 
   return (
     <main className="flex flex-1 flex-col items-center px-4 py-12">
       <div className="w-full max-w-2xl">
         <header className="mb-10 text-center">
-          <p className="mb-3 text-5xl">🧭</p>
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Where To
           </h1>
-          <p className="mx-auto mt-3 max-w-md text-slate-500">
+          <p className="mx-auto mt-3 max-w-md text-slate-500 dark:text-slate-400">
             An AI travel agent that plans your whole trip from{" "}
-            <span className="font-semibold text-slate-700">live data</span> —
-            real flights, real hotels, real places. Nothing invented.
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              live data
+            </span>{" "}
+            — real flights, real hotels, real places. Nothing invented.
           </p>
         </header>
 
         <form
           onSubmit={onSubmit}
-          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8"
+          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none"
         >
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
@@ -178,7 +180,7 @@ export default function HomePage() {
                     className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
                       active
                         ? "border-sky-500 bg-sky-500 text-white shadow-sm"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-600"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-600 dark:hover:text-sky-400"
                     }`}
                   >
                     {tag}
@@ -189,7 +191,7 @@ export default function HomePage() {
           </div>
 
           {error && (
-            <p className="mt-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+            <p className="mt-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:bg-rose-950 dark:text-rose-300">
               {error}
             </p>
           )}
@@ -197,13 +199,13 @@ export default function HomePage() {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-7 w-full rounded-xl bg-slate-900 px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-7 w-full rounded-xl bg-slate-900 px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-sky-600 dark:hover:bg-sky-500"
           >
-            {submitting ? "Handing off to your agent…" : "Plan my trip ✈️"}
+            {submitting ? "Handing off to your agent…" : "Plan my trip"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-400">
+        <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
           Powered by live Google Flights, Hotels, Places &amp; Routes data —
           every price and place is real.
         </p>

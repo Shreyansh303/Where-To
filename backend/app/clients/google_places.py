@@ -34,20 +34,21 @@ _PRICE_LEVELS = {
 }
 
 # Rough visit durations by place type; the solver treats these as estimates.
+# Tuned toward brisk sightseeing so days hold ~5 stops plus meals.
 _VISIT_MINUTES = {
-    "museum": 150,
-    "art_gallery": 120,
+    "museum": 120,
+    "art_gallery": 90,
     "amusement_park": 240,
-    "zoo": 180,
-    "aquarium": 120,
-    "park": 90,
-    "church": 60,
-    "hindu_temple": 60,
-    "mosque": 60,
-    "synagogue": 60,
-    "tourist_attraction": 90,
-    "shopping_mall": 120,
-    "market": 90,
+    "zoo": 150,
+    "aquarium": 100,
+    "park": 60,
+    "church": 45,
+    "hindu_temple": 45,
+    "mosque": 45,
+    "synagogue": 45,
+    "tourist_attraction": 75,
+    "shopping_mall": 90,
+    "market": 60,
 }
 
 
@@ -79,7 +80,7 @@ def _estimate_visit_minutes(types: list[str], kind: str) -> int:
     for t in types:
         if t in _VISIT_MINUTES:
             return _VISIT_MINUTES[t]
-    return 90
+    return 75
 
 
 def _parse_place(raw: dict[str, Any], kind: str, interest_tag: str | None) -> POI | None:

@@ -88,12 +88,13 @@ export default function PlanPage() {
       )}
 
       {state.phase === "error" && (
-        <div className="mt-16 w-full max-w-md rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-lg">
-          <p className="text-5xl">🧳💥</p>
-          <h1 className="mt-4 text-xl font-bold text-slate-900">
+        <div className="mt-16 w-full max-w-md rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-lg dark:border-rose-900 dark:bg-slate-900">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
             That trip hit turbulence
           </h1>
-          <p className="mt-2 text-sm text-slate-500">{state.message}</p>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            {state.message}
+          </p>
           <BackLink label="Try again" />
         </div>
       )}

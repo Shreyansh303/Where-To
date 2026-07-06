@@ -102,7 +102,7 @@ def test_places_parsing_and_hours_mapping(fixture_json):
 
     louvre = next(p for p in pois if p.name == "Louvre Museum")
     assert louvre.interest_tags == ["art"]
-    assert louvre.est_visit_minutes == 150  # museum heuristic
+    assert louvre.est_visit_minutes == 120  # museum heuristic
     # Google day 0 = Sunday → our weekday 6; day 1 (Monday) absent → closed
     assert louvre.opening_hours.is_open_during(6, 600, 800)
     assert not louvre.opening_hours.is_open_during(0, 600, 800)

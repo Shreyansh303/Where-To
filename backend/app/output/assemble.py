@@ -6,10 +6,14 @@ entities; the only LLM-authored content is the clearly-scoped `commentary`
 string carried through from finalize_plan.
 """
 
+from urllib.parse import quote
+
 from ..grounding import GroundingStore, TripSelections
 from ..models import (
+    POI,
     BudgetBreakdown,
     DataQualityNote,
+    LatLng,
     PlanDay,
     ResolvedStop,
     SolverResult,
@@ -17,10 +21,41 @@ from ..models import (
     TripRequest,
 )
 from ..models.matrix import TravelMatrix
+from ..util.geo import haversine_km
+
+MAX_EXTRAS_PER_DAY = 3
 
 
 def _fmt(minutes: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def _unscheduled_attractions(store: GroundingStore, solver_result: SolverResult) -> list[POI]:
+    """Every store-registered attraction that didn't make the schedule —
+    real, grounded 'if you have time' material."""
+    scheduled = {s.poi_id for day in solver_result.days for s in day.stops}
+    return [
+        p
+        for p in store.all_of_prefix("poi")
+        if isinstance(p, POI) and p.kind == "attraction" and p.id not in scheduled
+    ]
+
+
+def _pick_extras(pool: list[POI], stops: list[ResolvedStop]) -> list[POI]:
+    """Up to MAX_EXTRAS_PER_DAY unscheduled POIs nearest this day's route,
+    weighted by rating. Picked extras leave the pool so days don't repeat."""
+    anchors = [s.poi.location for s in stops if s.meal is None] or [s.poi.location for s in stops]
+    if not anchors or not pool:
+        return []
+    center = LatLng(
+        lat=sum(a.lat for a in anchors) / len(anchors),
+        lng=sum(a.lng for a in anchors) / len(anchors),
+    )
+    ranked = sorted(pool, key=lambda p: haversine_km(center, p.location) + (5.0 - (p.rating or 3.5)))
+    picked = ranked[:MAX_EXTRAS_PER_DAY]
+    for p in picked:
+        pool.remove(p)
+    return picked
 
 
 def _getting_around(solver_result: SolverResult, matrix: TravelMatrix) -> str:
@@ -50,7 +85,13 @@ def assemble_plan(
     outbound = store.get_flight(selections.outbound_flight_id, "outbound")
     inbound = store.get_flight(selections.return_flight_id, "return")
     hotel = store.get_hotel(selections.hotel_id) if selections.hotel_id else None
+    if hotel is not None and hotel.maps_url is None:
+        hotel.maps_url = (
+            "https://www.google.com/maps/search/?api=1&query="
+            + quote(f"{hotel.name} {request.destination_city}")
+        )
 
+    extras_pool = _unscheduled_attractions(store, solver_result)
     days: list[PlanDay] = []
     for day in solver_result.days:
         stops = [
@@ -66,7 +107,14 @@ def assemble_plan(
             )
             for s in day.stops
         ]
-        days.append(PlanDay(date=day.date, weekday_name=day.date.strftime("%A"), stops=stops))
+        days.append(
+            PlanDay(
+                date=day.date,
+                weekday_name=day.date.strftime("%A"),
+                stops=stops,
+                extras=_pick_extras(extras_pool, stops),
+            )
+        )
 
     # Round-trip totals: the return-leg option carries the final price.
     flights_total = inbound.price
