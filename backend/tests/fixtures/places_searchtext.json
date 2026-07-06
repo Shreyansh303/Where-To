@@ -1,0 +1,71 @@
+{
+  "places": [
+    {
+      "id": "ChIJD3uTd9hx5kcR1IQvGfr8dbk",
+      "displayName": { "text": "Louvre Museum", "languageCode": "en" },
+      "location": { "latitude": 48.8606111, "longitude": 2.337644 },
+      "rating": 4.7,
+      "userRatingCount": 305214,
+      "types": ["museum", "tourist_attraction", "point_of_interest"],
+      "formattedAddress": "75001 Paris, France",
+      "regularOpeningHours": {
+        "periods": [
+          { "open": { "day": 0, "hour": 9, "minute": 0 }, "close": { "day": 0, "hour": 18, "minute": 0 } },
+          { "open": { "day": 3, "hour": 9, "minute": 0 }, "close": { "day": 3, "hour": 21, "minute": 45 } },
+          { "open": { "day": 4, "hour": 9, "minute": 0 }, "close": { "day": 4, "hour": 18, "minute": 0 } },
+          { "open": { "day": 5, "hour": 9, "minute": 0 }, "close": { "day": 5, "hour": 18, "minute": 0 } },
+          { "open": { "day": 6, "hour": 9, "minute": 0 }, "close": { "day": 6, "hour": 18, "minute": 0 } }
+        ]
+      }
+    },
+    {
+      "id": "ChIJLU7jZClu5kcR4PcOOO6p3I0",
+      "displayName": { "text": "Eiffel Tower", "languageCode": "en" },
+      "location": { "latitude": 48.8583701, "longitude": 2.2944813 },
+      "rating": 4.7,
+      "userRatingCount": 412083,
+      "types": ["tourist_attraction", "point_of_interest"],
+      "formattedAddress": "Av. Gustave Eiffel, 75007 Paris, France",
+      "regularOpeningHours": {
+        "periods": [
+          { "open": { "day": 0, "hour": 9, "minute": 30 }, "close": { "day": 0, "hour": 23, "minute": 0 } },
+          { "open": { "day": 1, "hour": 9, "minute": 30 }, "close": { "day": 1, "hour": 23, "minute": 0 } },
+          { "open": { "day": 2, "hour": 9, "minute": 30 }, "close": { "day": 2, "hour": 23, "minute": 0 } },
+          { "open": { "day": 3, "hour": 9, "minute": 30 }, "close": { "day": 3, "hour": 23, "minute": 0 } },
+          { "open": { "day": 4, "hour": 9, "minute": 30 }, "close": { "day": 4, "hour": 23, "minute": 0 } },
+          { "open": { "day": 5, "hour": 9, "minute": 30 }, "close": { "day": 5, "hour": 23, "minute": 0 } },
+          { "open": { "day": 6, "hour": 9, "minute": 30 }, "close": { "day": 6, "hour": 23, "minute": 0 } }
+        ]
+      }
+    },
+    {
+      "id": "ChIJperelachaise0001",
+      "displayName": { "text": "Père Lachaise Cemetery", "languageCode": "en" },
+      "location": { "latitude": 48.861294, "longitude": 2.393377 },
+      "rating": 4.6,
+      "userRatingCount": 52780,
+      "types": ["cemetery", "tourist_attraction", "point_of_interest"],
+      "formattedAddress": "16 Rue du Repos, 75020 Paris, France"
+    },
+    {
+      "id": "ChIJrestaurantmarais01",
+      "displayName": { "text": "Chez Janou", "languageCode": "en" },
+      "location": { "latitude": 48.856011, "longitude": 2.366401 },
+      "rating": 4.4,
+      "userRatingCount": 6210,
+      "types": ["restaurant", "food", "point_of_interest"],
+      "priceLevel": "PRICE_LEVEL_MODERATE",
+      "formattedAddress": "2 Rue Roger Verlomme, 75003 Paris, France",
+      "regularOpeningHours": {
+        "periods": [
+          { "open": { "day": 1, "hour": 12, "minute": 0 }, "close": { "day": 1, "hour": 23, "minute": 30 } },
+          { "open": { "day": 2, "hour": 12, "minute": 0 }, "close": { "day": 2, "hour": 23, "minute": 30 } },
+          { "open": { "day": 3, "hour": 12, "minute": 0 }, "close": { "day": 3, "hour": 23, "minute": 30 } },
+          { "open": { "day": 4, "hour": 12, "minute": 0 }, "close": { "day": 4, "hour": 23, "minute": 30 } },
+          { "open": { "day": 5, "hour": 12, "minute": 0 }, "close": { "day": 5, "hour": 23, "minute": 30 } },
+          { "open": { "day": 6, "hour": 12, "minute": 0 }, "close": { "day": 6, "hour": 23, "minute": 30 } }
+        ]
+      }
+    }
+  ]
+}

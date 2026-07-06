@@ -1,0 +1,60 @@
+{
+  "search_metadata": { "status": "Success", "id": "fixture-hotels" },
+  "properties": [
+    {
+      "type": "hotel",
+      "name": "Hôtel du Louvre",
+      "description": "Refined hotel facing the Louvre with classic rooms.",
+      "link": "https://example.com/hotel-du-louvre",
+      "gps_coordinates": { "latitude": 48.8629, "longitude": 2.3364 },
+      "check_in_time": "3:00 PM",
+      "check_out_time": "12:00 PM",
+      "rate_per_night": { "lowest": "₹18,500", "extracted_lowest": 18500 },
+      "total_rate": { "lowest": "₹92,500", "extracted_lowest": 92500 },
+      "overall_rating": 4.5,
+      "reviews": 3812,
+      "hotel_class": "5-star hotel",
+      "extracted_hotel_class": 5,
+      "amenities": ["Free Wi-Fi", "Breakfast", "Air conditioning", "Bar", "Restaurant"],
+      "images": [{ "thumbnail": "https://example.com/louvre-thumb.jpg" }]
+    },
+    {
+      "type": "hotel",
+      "name": "Hôtel Le Marais Charme",
+      "description": "Boutique stay in the Marais near cafés and galleries.",
+      "link": "https://example.com/le-marais-charme",
+      "gps_coordinates": { "latitude": 48.8578, "longitude": 2.3622 },
+      "check_in_time": "2:00 PM",
+      "check_out_time": "11:00 AM",
+      "rate_per_night": { "lowest": "₹9,800", "extracted_lowest": 9800 },
+      "total_rate": { "lowest": "₹49,000", "extracted_lowest": 49000 },
+      "overall_rating": 4.3,
+      "reviews": 1547,
+      "hotel_class": "4-star hotel",
+      "extracted_hotel_class": 4,
+      "amenities": ["Free Wi-Fi", "Air conditioning"],
+      "images": [{ "thumbnail": "https://example.com/marais-thumb.jpg" }]
+    },
+    {
+      "type": "hotel",
+      "name": "Auberge Sans Prix",
+      "description": "Listing without a published rate.",
+      "gps_coordinates": { "latitude": 48.85, "longitude": 2.35 },
+      "overall_rating": 4.0,
+      "reviews": 210
+    },
+    {
+      "type": "hotel",
+      "name": "Palais Royal Grand",
+      "description": "Luxury palace hotel.",
+      "gps_coordinates": { "latitude": 48.8655, "longitude": 2.3212 },
+      "rate_per_night": { "lowest": "₹52,000", "extracted_lowest": 52000 },
+      "total_rate": { "lowest": "₹260,000", "extracted_lowest": 260000 },
+      "overall_rating": 4.8,
+      "reviews": 5210,
+      "hotel_class": "5-star hotel",
+      "extracted_hotel_class": 5,
+      "amenities": ["Spa", "Pool", "Free Wi-Fi"]
+    }
+  ]
+}

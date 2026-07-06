@@ -1,0 +1,11 @@
+[
+  { "originIndex": 0, "destinationIndex": 0, "duration": "0s", "condition": "ROUTE_EXISTS" },
+  { "originIndex": 0, "destinationIndex": 1, "duration": "1320s", "condition": "ROUTE_EXISTS" },
+  { "originIndex": 0, "destinationIndex": 2, "duration": "1860s", "condition": "ROUTE_EXISTS" },
+  { "originIndex": 1, "destinationIndex": 0, "duration": "1290s", "condition": "ROUTE_EXISTS" },
+  { "originIndex": 1, "destinationIndex": 1, "duration": "0s", "condition": "ROUTE_EXISTS" },
+  { "originIndex": 1, "destinationIndex": 2, "condition": "ROUTE_NOT_FOUND" },
+  { "originIndex": 2, "destinationIndex": 0, "duration": "1900s", "condition": "ROUTE_EXISTS" },
+  { "originIndex": 2, "destinationIndex": 1, "duration": "1450s", "condition": "ROUTE_EXISTS" },
+  { "originIndex": 2, "destinationIndex": 2, "duration": "0s", "condition": "ROUTE_EXISTS" }
+]

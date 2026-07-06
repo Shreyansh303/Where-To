@@ -1,0 +1,50 @@
+{
+  "search_metadata": { "status": "Success", "id": "fixture-return" },
+  "best_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": { "name": "Paris Charles de Gaulle Airport", "id": "CDG", "time": "2026-08-15 10:30" },
+          "arrival_airport": { "name": "Indira Gandhi International Airport", "id": "DEL", "time": "2026-08-15 22:45" },
+          "duration": 505,
+          "airline": "Air France",
+          "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AF.png",
+          "travel_class": "Economy",
+          "flight_number": "AF 226"
+        }
+      ],
+      "layovers": [],
+      "total_duration": 505,
+      "carbon_emissions": { "this_flight": 388000 },
+      "price": 42350,
+      "type": "Round trip",
+      "booking_token": "BOOKING_TOKEN_AF"
+    }
+  ],
+  "other_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": { "name": "Paris Charles de Gaulle Airport", "id": "CDG", "time": "2026-08-15 14:05" },
+          "arrival_airport": { "name": "Dubai International Airport", "id": "DXB", "time": "2026-08-15 23:00" },
+          "duration": 415,
+          "airline": "Emirates",
+          "travel_class": "Economy",
+          "flight_number": "EK 74"
+        },
+        {
+          "departure_airport": { "name": "Dubai International Airport", "id": "DXB", "time": "2026-08-16 03:30" },
+          "arrival_airport": { "name": "Indira Gandhi International Airport", "id": "DEL", "time": "2026-08-16 08:05" },
+          "duration": 215,
+          "airline": "Emirates",
+          "travel_class": "Economy",
+          "flight_number": "EK 510"
+        }
+      ],
+      "layovers": [{ "duration": 270, "name": "Dubai International Airport", "id": "DXB" }],
+      "total_duration": 900,
+      "price": 40120,
+      "type": "Round trip"
+    }
+  ]
+}
