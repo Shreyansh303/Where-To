@@ -3,7 +3,9 @@
 Given LLM-*selected* (but never LLM-scheduled) POIs, a hotel, restaurants and
 a real travel-time matrix, produce a day-by-day schedule:
 
-1. `cluster_pois` groups attractions geographically, one cluster per day.
+1. `pack_days` groups attractions into one cluster per day: full-day outings
+   (theme parks, island excursions) each claim a day of their own, the rest
+   are grouped geographically and filled up to a per-day time budget.
 2. Clusters are assigned to concrete dates by scoring every permutation
    (k ≤ 7, so brute force is cheap) against opening weekdays.
 3. Per day: nearest-neighbor route from the hotel, improved by 2-opt over the
@@ -28,11 +30,13 @@ from datetime import date as Date
 from ..models import POI, DroppedPOI, ItineraryDay, ItineraryStop, LatLng, SolverResult
 from ..models.matrix import TravelMatrix
 from ..util.geo import estimate_travel_minutes, haversine_km
-from .clustering import cluster_pois
+from .clustering import pack_days
 
 MEAL_ANCHORS = [("breakfast", 9 * 60, 40), ("lunch", 12 * 60 + 30, 70), ("dinner", 19 * 60, 90)]
 LUNCH_TRIGGER = 12 * 60 + 30
 DINNER_LATEST_END = 22 * 60
+MEAL_OVERHEAD = 110  # breakfast 40 + lunch 70, reserved when packing days
+TRAVEL_RESERVE = 90  # rough inter-stop travel head-room reserved per day
 
 
 @dataclass
@@ -60,7 +64,8 @@ def solve(inp: SolverInput) -> SolverResult:
     dropped += [DroppedPOI(poi_id=p.id, reason="closed on every trip day") for p in closed_everywhere]
 
     k = len(inp.days)
-    clusters = cluster_pois(open_pois, k) if open_pois else [[] for _ in range(k)]
+    day_budget = (inp.day_end - inp.day_start) - MEAL_OVERHEAD - TRAVEL_RESERVE
+    clusters = pack_days(open_pois, k, day_budget) if open_pois else [[] for _ in range(k)]
     day_plans = _assign_clusters_to_days(clusters, inp.days)
     _swap_closed_pois(day_plans, dropped)
 
@@ -193,7 +198,12 @@ def _schedule_day(
     meal_overhead = 110 if inp.restaurants else 0  # breakfast 40 + lunch 70
     keep = list(ordered)
     while keep and sum(p.est_visit_minutes for p in keep) + route_travel(keep) + meal_overhead > budget:
-        victim = min(keep, key=lambda p: p.value_score)
+        # A full-day attraction is meant to run long and own its day — never
+        # trim it; only pare back the ordinary stops sharing the day.
+        trimmable = [p for p in keep if not p.full_day]
+        if not trimmable:
+            break
+        victim = min(trimmable, key=lambda p: p.value_score)
         keep.remove(victim)
         dropped.append(DroppedPOI(poi_id=victim.id, reason="day time budget exceeded (lowest value first)"))
     ordered = keep
@@ -236,7 +246,9 @@ def _schedule_day(
             depart = arrive + poi.est_visit_minutes
 
         depart = arrive + poi.est_visit_minutes
-        if depart > inp.day_end:
+        # Full-day outings are allowed to spill past the nominal day end; every
+        # other stop must fit the window.
+        if depart > inp.day_end and not poi.full_day:
             dropped.append(DroppedPOI(poi_id=poi.id, reason="does not fit in the daily time window"))
             continue
 

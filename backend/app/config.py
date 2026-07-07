@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     cache_ttl_hotels: int = 3600
     cache_ttl_places: int = 86400
     cache_ttl_routes: int = 86400
+    cache_ttl_research: int = 2592000  # 30 days — travel-guide facts drift slowly
 
     # Fixture-backed clients + scripted LLM; a full demo run costs zero API calls
     fake_apis: bool = False
@@ -38,6 +39,7 @@ class Settings(BaseSettings):
             "hotels": self.cache_ttl_hotels,
             "places": self.cache_ttl_places,
             "routes": self.cache_ttl_routes,
+            "research": self.cache_ttl_research,
         }.get(service, 3600)
 
 

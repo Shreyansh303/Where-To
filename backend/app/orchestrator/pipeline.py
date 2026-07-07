@@ -15,11 +15,12 @@ from datetime import timedelta
 from typing import Callable
 
 from ..cache import Cache
-from ..clients import ApiError, FlightsClient, HotelsClient, PlacesClient, RoutesClient
+from ..clients import ApiError, FlightsClient, HotelsClient, PlacesClient, RoutesClient, SearchClient
 from ..config import Settings
 from ..grounding import GroundingStore
-from ..models import POI, DataQualityNote, LatLng, TripPlan, TripRequest
+from ..models import POI, AttractionFacts, CityBrief, DataQualityNote, LatLng, TripPlan, TripRequest
 from ..output import assemble_plan
+from ..research import build_city_brief
 from ..solver import SolverInput, solve
 from .fakes import build_fake_clients
 from .llm import FakeLLM, GroqLLM
@@ -159,16 +160,29 @@ def run_pipeline(
     except ApiError as exc:
         data_quality.append(DataQualityNote(source="places", level="degraded", message=f"restaurant search failed: {exc}"))
 
-    # Deterministic top-up: if the LLM picked fewer than ~5 attractions per
-    # day, fill from the remaining grounded pool by value so the solver has
-    # enough material for dense days. Still 100% real, store-registered POIs.
+    # Web-grounded planning brief: real visit durations, whole-day flags, ticket
+    # prices, and the city's canonical must-see list, distilled from travel-guide
+    # text. Best-effort — a failure leaves us on the type-based heuristics.
+    emit("research", f"Reading up on {request.destination_city}…")
+    brief = _build_city_brief(settings, store, request.destination_city, data_quality)
+    if brief is not None:
+        _apply_brief_durations(brief, store)
+
+    # Deterministic top-up: if the LLM picked too little material, fill from the
+    # remaining grounded pool by value so the solver has enough for dense days.
+    # Full-day attractions each consume a whole day, so they need no neighbours —
+    # only the ordinary days get topped up to ~5 stops. Must-see landmarks from
+    # the brief are pulled in first. Still 100% real, store-registered POIs.
     selected_ids = list(dict.fromkeys(selections.poi_ids))
-    target = 5 * request.full_days
+    full_day_selected = sum(1 for pid in selected_ids if store.get_poi(pid, "attraction").full_day)
+    normal_days = max(request.full_days - full_day_selected, 0)
+    target = full_day_selected + 5 * normal_days
     if len(selected_ids) < target:
         chosen = set(selected_ids)
+        must_see = _must_see_matcher(brief)
         pool = sorted(
             (p for p in store.all_of_prefix("poi") if isinstance(p, POI) and p.id not in chosen),
-            key=lambda p: -p.value_score,
+            key=lambda p: (0 if must_see(p.name) else 1, -p.value_score),
         )
         selected_ids += [p.id for p in pool[: target - len(selected_ids)]]
 
@@ -201,12 +215,139 @@ def run_pipeline(
     )
 
     emit("assembling", "Estimating entry costs…")
-    entry_costs, meal_cost = _estimate_costs(settings, selected_pois, request.destination_city)
+    entry_costs, entry_sources, meal_cost = _resolve_costs(
+        brief, settings, selected_pois, request.destination_city
+    )
 
     emit("assembling", "Packing it all together…")
-    plan = assemble_plan(request, store, selections, solver_result, matrix, data_quality, entry_costs, meal_cost)
+    plan = assemble_plan(
+        request, store, selections, solver_result, matrix, data_quality,
+        entry_costs, meal_cost, entry_sources,
+    )
     emit("done", "Your trip is ready!")
     return plan
+
+
+def _norm(s: str) -> str:
+    return "".join(ch for ch in s.lower() if ch.isalnum() or ch.isspace()).strip()
+
+
+def _match_facts(name: str, brief: CityBrief | None) -> AttractionFacts | None:
+    """Match a POI name to a brief entry — exact-normalized first, then either
+    name containing the other (handles 'Disneyland' vs 'Hong Kong Disneyland')."""
+    if brief is None:
+        return None
+    n = _norm(name)
+    fallback: AttractionFacts | None = None
+    for key, facts in brief.attractions.items():
+        k = _norm(key)
+        if not k:
+            continue
+        if k == n:
+            return facts
+        if fallback is None and (k in n or n in k):
+            fallback = facts
+    return fallback
+
+
+def _must_see_matcher(brief: CityBrief | None) -> Callable[[str], bool]:
+    """A predicate: is this POI name one of the brief's must-see landmarks?"""
+    if brief is None or not brief.must_see:
+        return lambda name: False
+    keys = [_norm(m) for m in brief.must_see if m]
+
+    def matches(name: str) -> bool:
+        n = _norm(name)
+        return any(k and (k in n or n in k) for k in keys)
+
+    return matches
+
+
+def _build_city_brief(
+    settings: Settings,
+    store: GroundingStore,
+    city: str,
+    data_quality: list[DataQualityNote],
+) -> CityBrief | None:
+    """Web-research the city and LLM-extract a planning brief. Live-mode only;
+    returns None (noting a degrade if it was attempted) so the trip completes."""
+    if settings.fake_apis or not settings.serpapi_api_key or not settings.groq_api_key:
+        return None
+    try:
+        from groq import Groq
+
+        cache = Cache(settings.cache_path, ttls={"research": settings.cache_ttl_research})
+        search = SearchClient(settings.serpapi_api_key, cache=cache)
+        groq = Groq(api_key=settings.groq_api_key)
+
+        def chat_complete(system: str, user: str) -> str:
+            resp = groq.chat.completions.create(
+                model=settings.groq_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                temperature=0.1,
+                max_tokens=1400,
+            )
+            return resp.choices[0].message.content or ""
+
+        names = [
+            p.name
+            for p in store.all_of_prefix("poi")
+            if isinstance(p, POI) and p.kind == "attraction"
+        ]
+        brief = build_city_brief(city, settings.currency, names, search, chat_complete)
+        if brief is None:
+            data_quality.append(
+                DataQualityNote(source="places", level="degraded", message="city research unavailable — using heuristic durations and estimated prices")
+            )
+        return brief
+    except Exception as exc:  # never let research sink the trip
+        data_quality.append(
+            DataQualityNote(source="places", level="degraded", message=f"city research failed ({exc}) — using heuristics")
+        )
+        return None
+
+
+def _apply_brief_durations(brief: CityBrief, store: GroundingStore) -> None:
+    """Override type-heuristic visit durations and whole-day flags on stored
+    attractions with the researched values (matched by name)."""
+    for p in store.all_of_prefix("poi"):
+        if not isinstance(p, POI) or p.kind != "attraction":
+            continue
+        facts = _match_facts(p.name, brief)
+        if facts is None:
+            continue
+        if facts.duration_minutes and facts.duration_minutes > 0:
+            p.est_visit_minutes = facts.duration_minutes
+        if facts.is_full_day:
+            p.is_full_day = True
+
+
+def _resolve_costs(
+    brief: CityBrief | None,
+    settings: Settings,
+    pois: list[POI],
+    city: str,
+) -> tuple[dict[str, str], dict[str, str], str | None]:
+    """Return (entry_costs, entry_cost_sources, meal_cost). Prefer the researched
+    brief (with source links); fall back to the LLM estimate with no brief."""
+    if brief is not None:
+        entry_costs: dict[str, str] = {}
+        entry_sources: dict[str, str] = {}
+        for p in pois:
+            if p.kind != "attraction":
+                continue
+            facts = _match_facts(p.name, brief)
+            if facts and facts.ticket_price:
+                entry_costs[p.id] = facts.ticket_price
+                if facts.source_url:
+                    entry_sources[p.id] = facts.source_url
+        return entry_costs, entry_sources, brief.meal_cost
+    entry_costs, meal_cost = _estimate_costs(settings, pois, city)
+    return entry_costs, {}, meal_cost
+
 
 def _estimate_costs(
     settings: Settings,

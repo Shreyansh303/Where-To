@@ -79,6 +79,8 @@ export interface ResolvedStop {
   meal: "breakfast" | "lunch" | "dinner" | null;
   note: string | null;
   est_entry_cost: string | null;
+  est_entry_cost_source: string | null;
+  is_full_day: boolean;
 }
 
 export interface PlanDay {

@@ -23,6 +23,9 @@ def _handler(request: httpx.Request) -> httpx.Response:
     if "serpapi.com" in url:
         if "google_hotels" in url:
             return httpx.Response(200, json=_fixture("serpapi_hotels.json"))
+        # web search engine (engine=google), distinct from google_flights/hotels
+        if "engine=google&" in url or url.endswith("engine=google"):
+            return httpx.Response(200, json=_fixture("serpapi_search.json"))
         if "departure_token" in url:
             return httpx.Response(200, json=_fixture("serpapi_flights_return.json"))
         return httpx.Response(200, json=_fixture("serpapi_flights_outbound.json"))

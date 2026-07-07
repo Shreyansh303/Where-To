@@ -1,0 +1,25 @@
+{
+  "answer_box": {
+    "snippet": "Most travelers spend 4 to 5 days in Hong Kong to cover the main sights without rushing."
+  },
+  "knowledge_graph": {
+    "description": "Hong Kong is a special administrative region on China's south coast, known for its skyline, harbour, and Lantau Island."
+  },
+  "organic_results": [
+    {
+      "title": "Top 10 attractions in Hong Kong",
+      "snippet": "Must-sees include Victoria Peak, Tian Tan Buddha (Big Buddha) on Lantau Island, Hong Kong Disneyland, and the Star Ferry.",
+      "link": "https://example.com/hong-kong-attractions"
+    },
+    {
+      "title": "Hong Kong Disneyland: full-day guide",
+      "snippet": "Set aside a whole day for Hong Kong Disneyland. A standard 1-day adult ticket costs about HK$639 (roughly INR 6,800).",
+      "link": "https://example.com/hk-disneyland"
+    },
+    {
+      "title": "Victoria Peak Tram and Sky Terrace",
+      "snippet": "The Peak Tram plus Sky Terrace 428 combo is around HK$148 (about INR 1,600); plan roughly 2 hours.",
+      "link": "https://example.com/victoria-peak"
+    }
+  ]
+}

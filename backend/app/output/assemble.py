@@ -137,6 +137,7 @@ def assemble_plan(
     data_quality: list[DataQualityNote],
     entry_costs: dict[str, str] | None = None,
     meal_cost: str | None = None,
+    entry_cost_sources: dict[str, str] | None = None,
 ) -> TripPlan:
     outbound = store.get_flight(selections.outbound_flight_id, "outbound")
     inbound = store.get_flight(selections.return_flight_id, "return")
@@ -148,12 +149,13 @@ def assemble_plan(
         )
 
     _costs = entry_costs or {}
+    _sources = entry_cost_sources or {}
     extras_pool = _unscheduled_attractions(store, solver_result)
     days: list[PlanDay] = []
     for day in solver_result.days:
         stops = [
             ResolvedStop(
-                poi=store.get_poi(s.poi_id),
+                poi=(_poi := store.get_poi(s.poi_id)),
                 arrive=_fmt(s.arrive_min),
                 depart=_fmt(s.depart_min),
                 travel_from_prev_minutes=s.travel_from_prev_minutes,
@@ -162,6 +164,8 @@ def assemble_plan(
                 meal=s.meal,
                 note=s.note,
                 est_entry_cost=_costs.get(s.poi_id),
+                est_entry_cost_source=_sources.get(s.poi_id),
+                is_full_day=_poi.full_day,
             )
             for s in day.stops
         ]

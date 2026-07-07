@@ -445,14 +445,30 @@ function StopRow({ stop, isLast }: { stop: ResolvedStop; isLast: boolean }) {
               {stop.meal}
             </span>
           )}
-          {stop.est_entry_cost && (
-            <span
-              className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-normal text-sky-600 dark:bg-sky-950/50 dark:text-sky-400"
-              title="AI generated cost estimate. Could be wrong, please verify yourself."
-            >
-              {stop.est_entry_cost}
+          {stop.is_full_day && (
+            <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-600 dark:bg-violet-950/50 dark:text-violet-300">
+              Full day
             </span>
           )}
+          {stop.est_entry_cost &&
+            (stop.est_entry_cost_source ? (
+              <a
+                href={stop.est_entry_cost_source}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-normal text-sky-600 underline decoration-dotted underline-offset-2 hover:bg-sky-100 dark:bg-sky-950/50 dark:text-sky-400 dark:hover:bg-sky-900/50"
+                title="Researched cost estimate — click to view the source. Please verify before you go."
+              >
+                {stop.est_entry_cost}
+              </a>
+            ) : (
+              <span
+                className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-normal text-sky-600 dark:bg-sky-950/50 dark:text-sky-400"
+                title="Estimated cost. Could be wrong, please verify yourself."
+              >
+                {stop.est_entry_cost}
+              </span>
+            ))}
           {stop.poi.maps_url && <MapsLink href={stop.poi.maps_url} />}
         </p>
         {stop.poi.rating != null && (

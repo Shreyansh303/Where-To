@@ -5,7 +5,7 @@ from datetime import date
 from app.models import POI, LatLng, OpeningHours
 from app.models.matrix import TravelMatrix
 from app.solver import SolverInput, solve
-from app.solver.clustering import cluster_pois
+from app.solver.clustering import cluster_pois, pack_days
 from app.solver.itinerary import _order_route
 from app.util.geo import estimate_travel_minutes
 
@@ -14,7 +14,7 @@ DAY1 = date(2026, 8, 11)  # Tuesday
 DAY2 = date(2026, 8, 12)  # Wednesday
 
 
-def make_poi(pid, lat, lng, rating=4.5, visit=60, hours=None, kind="attraction"):
+def make_poi(pid, lat, lng, rating=4.5, visit=60, hours=None, kind="attraction", full_day=False):
     return POI(
         id=pid,
         place_id=f"g_{pid}",
@@ -24,6 +24,7 @@ def make_poi(pid, lat, lng, rating=4.5, visit=60, hours=None, kind="attraction")
         rating=rating,
         est_visit_minutes=visit,
         opening_hours=hours,
+        is_full_day=full_day,
     )
 
 
@@ -55,10 +56,21 @@ def test_clustering_separates_obvious_geographic_groups():
     assert {"w"} in sides and {"e"} in sides
 
 
-def test_clustering_respects_capacity_balance():
-    pois = [make_poi(f"p{i}", 48.85 + i * 0.002, 2.30 + (i % 3) * 0.01) for i in range(9)]
-    clusters = cluster_pois(pois, 3)
-    assert sorted(len(c) for c in clusters) == [3, 3, 3]
+def test_pack_days_respects_time_budget():
+    # 9 POIs at 120min each; a 240min/day budget fits exactly 2 per day.
+    pois = [make_poi(f"p{i}", 48.85 + i * 0.002, 2.30 + (i % 3) * 0.01, visit=120) for i in range(9)]
+    clusters = pack_days(pois, 3, day_budget_minutes=240)
+    assert all(sum(p.est_visit_minutes for p in c) <= 240 for c in clusters)
+    # Budget-limited: not every POI can be placed, the rest become extras.
+    assert sum(len(c) for c in clusters) < len(pois)
+
+
+def test_pack_days_gives_full_day_attraction_its_own_day():
+    disney = make_poi("disney", 22.31, 114.04, full_day=True, visit=480)
+    others = [make_poi(f"p{i}", 22.28 + i * 0.002, 114.16, visit=90) for i in range(4)]
+    clusters = pack_days([disney] + others, 3, day_budget_minutes=520)
+    solo = next(c for c in clusters if any(p.id == "disney" for p in c))
+    assert solo == [disney]  # nothing else shares the full-day outing
 
 
 # ------------------------------------------------------------------ routing
@@ -110,6 +122,17 @@ def test_full_solve_visits_everything_when_feasible():
     assert result.dropped == []
 
 
+def test_full_day_attraction_scheduled_alone():
+    # A theme-park-style full-day POI plus ordinary sights over a 3-day trip:
+    # the full-day place should occupy a day by itself.
+    disney = make_poi("disney", 22.313, 114.041, full_day=True, visit=480)
+    others = [make_poi(f"p{i}", 22.28 + i * 0.003, 114.16 + i * 0.002, visit=90) for i in range(6)]
+    result = solve(build_input([disney] + others, days=[DAY1, DAY2, date(2026, 8, 13)]))
+    disney_day = next(d for d in result.days if any(s.poi_id == "disney" for s in d.stops))
+    attractions = [s.poi_id for s in disney_day.stops if s.meal is None]
+    assert attractions == ["disney"]  # no other attractions share its day
+
+
 def test_solver_is_deterministic():
     pois = [make_poi(f"p{i}", 48.85 + (i % 4) * 0.01, 2.30 + (i % 3) * 0.015) for i in range(8)]
     r1 = solve(build_input(pois))
@@ -128,17 +151,18 @@ def test_stop_times_are_sequential_and_within_window():
             last_depart = stop.depart_min
 
 
-def test_overloaded_day_drops_lowest_value_first():
-    # 1-day trip, way too much to see: 8 POIs x 3h > 12h window
+def test_overloaded_day_keeps_highest_value_first():
+    # 1-day trip, way too much to see: 8 POIs x 3h > usable window. The extras
+    # overflow (surface as "if you have time"), keeping the best-rated stops.
     pois = [
         make_poi(f"p{i}", 48.855 + i * 0.002, 2.31, rating=3.0 + i * 0.2, visit=180)
         for i in range(8)
     ]
     result = solve(build_input(pois, days=[DAY1]))
-    assert result.dropped, "some POIs must be dropped"
-    dropped_ids = {d.poi_id for d in result.dropped}
-    assert "p0" in dropped_ids  # lowest rating drops first
-    assert "p7" not in dropped_ids  # highest rating survives
+    scheduled = {s.poi_id for day in result.days for s in day.stops if s.meal is None}
+    assert len(scheduled) < len(pois)  # not everything fits the day
+    assert "p7" in scheduled  # highest rating survives
+    assert "p0" not in scheduled  # lowest rating overflows to extras
 
 
 def test_poi_closed_on_all_days_is_dropped_with_reason():

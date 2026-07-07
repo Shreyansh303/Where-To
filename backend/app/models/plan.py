@@ -42,7 +42,9 @@ class ResolvedStop(BaseModel):
     travel_is_estimate: bool = False
     meal: Literal["breakfast", "lunch", "dinner"] | None = None
     note: str | None = None
-    est_entry_cost: str | None = None  # AI-estimated, not grounded data
+    est_entry_cost: str | None = None  # researched estimate, not grounded data
+    est_entry_cost_source: str | None = None  # URL backing the price estimate
+    is_full_day: bool = False  # a whole-day outing (owns its itinerary day)
 
 
 class PlanDay(BaseModel):

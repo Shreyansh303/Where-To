@@ -34,11 +34,14 @@ _PRICE_LEVELS = {
 }
 
 # Rough visit durations by place type; the solver treats these as estimates.
-# Tuned toward brisk sightseeing so days hold ~5 stops plus meals.
+# Tuned toward brisk sightseeing so days hold ~5 stops plus meals. Web-grounded
+# durations from the city brief (Phase 2) override these when available.
 _VISIT_MINUTES = {
     "museum": 120,
     "art_gallery": 90,
-    "amusement_park": 240,
+    "amusement_park": 480,  # theme parks realistically eat a whole day
+    "theme_park": 480,
+    "water_park": 420,
     "zoo": 150,
     "aquarium": 100,
     "park": 60,
@@ -50,6 +53,9 @@ _VISIT_MINUTES = {
     "shopping_mall": 90,
     "market": 60,
 }
+
+# Place types that are whole-day outings regardless of the duration heuristic.
+_FULL_DAY_TYPES = {"amusement_park", "theme_park", "water_park"}
 
 
 def _parse_opening_hours(raw: dict[str, Any] | None) -> OpeningHours | None:
@@ -101,6 +107,7 @@ def _parse_place(raw: dict[str, Any], kind: str) -> POI | None:
         address=raw.get("formattedAddress"),
         opening_hours=_parse_opening_hours(raw.get("regularOpeningHours")),
         est_visit_minutes=_estimate_visit_minutes(types, kind),
+        is_full_day=kind == "attraction" and bool(_FULL_DAY_TYPES & set(types)),
     )
 
 

@@ -143,3 +143,40 @@ def test_routes_degradation_is_flagged(tmp_path):
     # missing elements must be flagged as estimates in data_quality.
     plan = run_pipeline(make_request(), make_settings(tmp_path))
     assert any(n.source == "routes" and n.level == "degraded" for n in plan.data_quality)
+
+
+def test_city_brief_overrides_duration_and_price(tmp_path, monkeypatch):
+    # A researched brief marks the Louvre a whole-day outing with a sourced
+    # price; the plan must reflect the override — Louvre alone on its day,
+    # carrying the researched cost + source link.
+    from app.models import AttractionFacts, CityBrief
+
+    brief = CityBrief(
+        city="Paris",
+        must_see=["Louvre Museum"],
+        attractions={
+            "Louvre Museum": AttractionFacts(
+                duration_minutes=480,
+                is_full_day=True,
+                ticket_price="INR 2,000",
+                source_url="https://example.com/louvre",
+            )
+        },
+        meal_cost="INR 1,500",
+    )
+    monkeypatch.setattr(pipeline_module, "_build_city_brief", lambda *a, **k: brief)
+
+    plan = run_pipeline(make_request(), make_settings(tmp_path))
+
+    louvre_stops = [
+        (d, s) for d in plan.days for s in d.stops if s.poi.name == "Louvre Museum"
+    ]
+    assert louvre_stops, "Louvre should be scheduled"
+    day, stop = louvre_stops[0]
+    assert stop.is_full_day is True
+    assert stop.est_entry_cost == "INR 2,000"
+    assert stop.est_entry_cost_source == "https://example.com/louvre"
+    # A whole-day outing owns its day: no other attractions share it.
+    others = [s for s in day.stops if s.meal is None and s.poi.name != "Louvre Museum"]
+    assert others == []
+    assert plan.budget.est_meal_cost == "INR 1,500"

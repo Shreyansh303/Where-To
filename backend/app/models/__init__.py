@@ -3,6 +3,7 @@ from .itinerary import DroppedPOI, ItineraryDay, ItineraryStop, SolverResult
 from .places import POI
 from .plan import BudgetBreakdown, DataQualityNote, PlanDay, ResolvedStop, TripPlan
 from .request import TripRequest
+from .research import AttractionFacts, CityBrief
 from .travel import FlightOption, FlightSegment, HotelOption
 
 __all__ = [
@@ -19,6 +20,8 @@ __all__ = [
     "ResolvedStop",
     "TripPlan",
     "TripRequest",
+    "AttractionFacts",
+    "CityBrief",
     "FlightOption",
     "FlightSegment",
     "HotelOption",

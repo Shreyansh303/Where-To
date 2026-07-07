@@ -21,11 +21,11 @@ from app.orchestrator.pipeline import run_pipeline
 
 REQUEST = TripRequest(
     origin="DEL",
-    destination="CDG",
-    destination_city="Paris",
+    destination="HKG",
+    destination_city="Hong Kong",
     departure_date=date(2026, 8, 10),
-    return_date=date(2026, 8, 15),
-    budget=250000,
+    return_date=date(2026, 8, 16),  # 6 nights → 5 sightseeing days
+    budget=350000,
     travelers=1,
 )
 
@@ -71,12 +71,18 @@ def summarize(plan):
         print(f"Hotel:    {plan.hotel.name} | rating {plan.hotel.rating} | total {plan.hotel.total_rate:,.0f} {plan.hotel.currency}")
     b = plan.budget
     print(f"Budget:   total {b.total:,.0f} | flights {b.flights_total:,.0f} | hotel {b.hotel_total or 0:,.0f} | left {b.remaining_for_activities:,.0f}")
+    if b.est_meal_cost:
+        print(f"Meal:     ~{b.est_meal_cost} per adult (researched estimate)")
     for day in plan.days:
         print(f"\n  {day.date} ({day.weekday_name})")
         for s in day.stops:
             tag = f" [{s.meal}]" if s.meal else ""
+            full = " [FULL DAY]" if s.is_full_day else ""
+            cost = f" — {s.est_entry_cost}" if s.est_entry_cost else ""
+            src = f" (src: {s.est_entry_cost_source})" if s.est_entry_cost_source else ""
             est = "~" if s.travel_is_estimate else ""
-            print(f"    {s.arrive}-{s.depart}{tag} {s.poi.name} (travel {est}{s.travel_from_prev_minutes}m)"
+            print(f"    {s.arrive}-{s.depart}{tag}{full} {s.poi.name}{cost}{src} "
+                  f"(travel {est}{s.travel_from_prev_minutes}m)"
                   + (f"  // {s.note}" if s.note else ""))
     print(f"\nGetting around: {plan.getting_around}")
     print(f"Commentary: {plan.commentary}")
