@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     fake_apis: bool = False
 
     cors_origins: str = "http://localhost:3000"
+    # Optional regex for additional allowed origins — handy for Vercel preview
+    # deployments, whose URLs change per build, e.g. r"https://.*\.vercel\.app"
+    cors_origin_regex: str = ""
 
     def ttl_for(self, service: str) -> int:
         return {

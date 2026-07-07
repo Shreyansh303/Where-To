@@ -1,0 +1,37 @@
+# Render Blueprint for the "Where To" backend (FastAPI, persistent process).
+# The frontend deploys separately on Vercel — see DEPLOY.md.
+#
+# In the Render dashboard: New + → Blueprint → pick this repo. Render reads this
+# file, creates the service, and prompts for the secret env vars below.
+services:
+  - type: web
+    name: where-to-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install .
+    startCommand: uvicorn app.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      # Secrets — left blank on purpose; set the real values in the dashboard.
+      - key: SERPAPI_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # Non-secret defaults (override in the dashboard if needed).
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: CURRENCY
+        value: INR
+      - key: FAKE_APIS
+        value: "0"
+      # CORS — set CORS_ORIGINS to your Vercel production URL after the first
+      # frontend deploy. The regex additionally allows Vercel preview URLs.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: CORS_ORIGIN_REGEX
+        value: 'https://.*\.vercel\.app'
