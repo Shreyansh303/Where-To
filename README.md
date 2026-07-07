@@ -69,6 +69,3 @@ Re-running the same trip within the TTL window: **0** external calls (verified b
 
 Greedy nearest-neighbor + 2-opt is not globally optimal (a small TSP-ish heuristic that's easy to reason about and test); one opening window per visit is honored (no split visits or timed-entry tickets); meal travel legs use distance-based estimates by design (restaurants are chosen *because* they're adjacent to the route). Attractions that can't fit surface as unscheduled extras rather than disappearing. Visit durations and ticket prices are researched estimates with sources, not booking-grade data.
 
-## Deliberate exclusions
-
-Booking flow (post-selection, not core), multi-city trips, user accounts / persistent job storage (in-memory jobs, single process), currency conversion (single configurable currency, default INR), map rendering (timeline + ordering instead), streaming LLM tokens (stage events are the progress signal).
