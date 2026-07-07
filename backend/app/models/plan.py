@@ -22,6 +22,7 @@ class BudgetBreakdown(BaseModel):
     flights_total: float | None = None
     hotel_total: float | None = None
     remaining_for_activities: float | None = None
+    est_meal_cost: str | None = None
 
 
 class DataQualityNote(BaseModel):
@@ -41,6 +42,7 @@ class ResolvedStop(BaseModel):
     travel_is_estimate: bool = False
     meal: Literal["breakfast", "lunch", "dinner"] | None = None
     note: str | None = None
+    est_entry_cost: str | None = None  # AI-estimated, not grounded data
 
 
 class PlanDay(BaseModel):

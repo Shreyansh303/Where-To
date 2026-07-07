@@ -29,6 +29,8 @@ EmitFn = Callable[[str, str], None]
 
 MAX_AGENT_ITERATIONS = 16
 
+_COST_SYSTEM = "You estimate travel costs. Return ONLY valid JSON, no markdown."
+
 SYSTEM_PROMPT = """You are a travel-planning agent. Never invent data — only \
 select options returned by tools, by their exact ids. Flow: search_flights -> \
 get_return_flights(chosen outbound id) -> search_hotels -> search_attractions \
@@ -181,7 +183,7 @@ def run_pipeline(
     matrix = routes.travel_time_matrix(points)
     if matrix.any_estimated:
         data_quality.append(
-            DataQualityNote(source="routes", level="degraded", message="some travel times are distance-based estimates")
+            DataQualityNote(source="routes", level="degraded", message="Some travel times are distance-based estimates")
         )
 
     emit("solving", "Cooking up your itinerary…")
@@ -197,10 +199,65 @@ def run_pipeline(
         )
     )
 
+    emit("assembling", "Estimating entry costs…")
+    entry_costs, meal_cost = _estimate_costs(settings, selected_pois, request.destination_city)
+
     emit("assembling", "Packing it all together…")
-    plan = assemble_plan(request, store, selections, solver_result, matrix, data_quality)
+    plan = assemble_plan(request, store, selections, solver_result, matrix, data_quality, entry_costs, meal_cost)
     emit("done", "Your trip is ready!")
     return plan
+
+def _estimate_costs(
+    settings: Settings,
+    pois: list[POI],
+    city: str,
+) -> tuple[dict[str, str], str | None]:
+    """Best-effort LLM estimate of entry costs for attractions and average meal cost.
+    Returns ({poi_id: cost_string}, meal_cost_string). Fails silently on any error."""
+    attractions = [p for p in pois if p.kind == "attraction"]
+    if not attractions or settings.fake_apis:
+        return {}, None
+    try:
+        from groq import Groq
+
+        client = Groq(api_key=settings.groq_api_key)
+        names_list = "\n".join(f"- {p.name}" for p in attractions)
+        prompt = (
+            f"For each attraction in {city}, estimate the typical adult "
+            f"entry/ticket cost. If free to visit (public parks, streets, churches with free entry), say \"Free\". "
+            f"Also estimate the average cost of a meal in {city} for one adult at a slightly above-average restaurant. "
+            f"CRITICAL: ALL costs MUST be converted to and returned strictly in {settings.currency} (e.g., if the local currency is different, you must convert it to {settings.currency}). "
+            f"Format every price with the {settings.currency} currency symbol. "
+            f"Return ONLY a valid JSON object with two keys: 'meal_cost' containing the meal estimate string, and 'attractions' containing a JSON object mapping the exact attraction name to its cost string.\n\n"
+            f"Attractions:\n{names_list}"
+        )
+        resp = client.chat.completions.create(
+            model=settings.groq_model,
+            messages=[
+                {"role": "system", "content": _COST_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=800,
+        )
+        text = (resp.choices[0].message.content or "").strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        data = json.loads(text)
+        costs_by_name = data.get("attractions", {})
+        meal_cost = data.get("meal_cost")
+        
+        name_to_id = {p.name: p.id for p in attractions}
+        return {
+            name_to_id[name]: cost
+            for name, cost in costs_by_name.items()
+            if name in name_to_id
+        }, meal_cost
+    except Exception:
+        return {}, None
 
 
 def _centroid(points: list[LatLng]) -> LatLng:

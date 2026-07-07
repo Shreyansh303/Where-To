@@ -88,11 +88,11 @@ export default function PlanPage() {
       )}
 
       {state.phase === "error" && (
-        <div className="mt-16 w-full max-w-md rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-lg dark:border-rose-900 dark:bg-slate-900">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+        <div className="mt-16 w-full max-w-md rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-lg dark:border-rose-900 dark:bg-zinc-900">
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
             That trip hit turbulence
           </h1>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
             {state.message}
           </p>
           <BackLink label="Try again" />
@@ -106,7 +106,7 @@ function BackLink({ label }: { label: string }) {
   return (
     <Link
       href="/"
-      className="mt-10 inline-block rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow transition hover:bg-slate-700"
+      className="mt-10 inline-block rounded-xl bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow transition hover:bg-zinc-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
     >
       ← {label}
     </Link>

@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 // Applied before hydration so a saved dark preference never flashes light.
-const themeInit = `try{var t=localStorage.theme;if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`;
+const themeInit = `try{if(localStorage.theme==='light')document.documentElement.classList.remove('dark');else document.documentElement.classList.add('dark')}catch(e){document.documentElement.classList.add('dark')}`;
 
 export default function RootLayout({
   children,

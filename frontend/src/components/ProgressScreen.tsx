@@ -56,16 +56,16 @@ export default function ProgressScreen({ events }: { events: StageEvent[] }) {
   return (
     <div className="flex w-full max-w-lg flex-col items-center text-center">
       <div className="relative flex h-20 w-20 items-center justify-center" aria-hidden>
-        <span className="absolute inset-0 animate-spin rounded-full border-2 border-slate-200 border-t-sky-500 dark:border-slate-700 dark:border-t-sky-400 [animation-duration:1.4s]" />
-        <span className="absolute inset-3 animate-spin rounded-full border-2 border-slate-100 border-b-sky-300 dark:border-slate-800 dark:border-b-sky-600 [animation-direction:reverse] [animation-duration:2.2s]" />
+        <span className="absolute inset-0 animate-spin rounded-full border-2 border-zinc-200 border-t-emerald-500 dark:border-zinc-700 dark:border-t-emerald-400 [animation-duration:1.4s]" />
+        <span className="absolute inset-3 animate-spin rounded-full border-2 border-zinc-100 border-b-emerald-300 dark:border-zinc-800 dark:border-b-emerald-600 [animation-direction:reverse] [animation-duration:2.2s]" />
       </div>
       <p
         key={`${stage}-${funIndex % fun.length}`}
-        className="animate-fade-slide mt-8 min-h-14 text-xl font-semibold text-slate-800 dark:text-slate-100"
+        className="animate-fade-slide mt-8 min-h-14 text-xl font-semibold text-zinc-800 dark:text-zinc-100"
       >
         {fun[funIndex % fun.length]}
       </p>
-      <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
+      <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
         Working with live data — this takes a moment
       </p>
 
@@ -83,8 +83,8 @@ export default function ProgressScreen({ events }: { events: StageEvent[] }) {
                 isDone
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
                   : isActive
-                    ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300"
-                    : "border-slate-200 bg-white text-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600"
+                    ? "border-emerald-200 bg-emerald-50/50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+                    : "border-zinc-200 bg-white text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600"
               }`}
             >
               <span className="flex h-5 w-5 items-center justify-center">
@@ -101,7 +101,7 @@ export default function ProgressScreen({ events }: { events: StageEvent[] }) {
 
 function Spinner() {
   return (
-    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
+    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
   );
 }
 

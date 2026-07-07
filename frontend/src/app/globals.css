@@ -4,13 +4,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #fafafa;
+  --foreground: #18181b;
 }
 
 .dark {
-  --background: #0b1220;
-  --foreground: #e2e8f0;
+  --background: #09090b;
+  --foreground: #e4e4e7;
 }
 
 @theme inline {
@@ -39,4 +39,13 @@ body {
 
 .animate-fade-slide {
   animation: fade-slide 0.35s ease-out both;
+}
+
+@keyframes subtle-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.animate-subtle-glow {
+  animation: subtle-glow 3s ease-in-out infinite;
 }

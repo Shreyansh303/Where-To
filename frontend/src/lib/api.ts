@@ -80,6 +80,7 @@ export interface ResolvedStop {
   travel_is_estimate: boolean;
   meal: "breakfast" | "lunch" | "dinner" | null;
   note: string | null;
+  est_entry_cost: string | null;
 }
 
 export interface PlanDay {
@@ -109,6 +110,7 @@ export interface TripPlan {
     flights_total: number | null;
     hotel_total: number | null;
     remaining_for_activities: number | null;
+    est_meal_cost: string | null;
   };
   data_quality: DataQualityNote[];
   commentary: string | null;
