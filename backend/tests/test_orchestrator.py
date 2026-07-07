@@ -31,7 +31,6 @@ def make_request(**overrides) -> TripRequest:
         return_date=date(2026, 8, 15),
         budget=400000,
         travelers=2,
-        interests=["art", "history"],
     )
     defaults.update(overrides)
     return TripRequest(**defaults)

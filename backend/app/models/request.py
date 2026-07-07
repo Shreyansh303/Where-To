@@ -11,7 +11,6 @@ class TripRequest(BaseModel):
     return_date: date
     budget: float = Field(gt=0, description="Total trip budget in the configured currency")
     travelers: int = Field(default=1, ge=1, le=9)
-    interests: list[str] = Field(default_factory=list, description="e.g. ['art', 'history', 'food']")
 
     @model_validator(mode="after")
     def _dates_ordered(self) -> "TripRequest":

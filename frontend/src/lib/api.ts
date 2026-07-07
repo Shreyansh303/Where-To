@@ -11,7 +11,6 @@ export interface TripRequestBody {
   return_date: string;
   budget: number;
   travelers: number;
-  interests: string[];
 }
 
 export interface FlightSegment {
@@ -66,7 +65,6 @@ export interface POI {
   types: string[];
   price_level: number | null;
   address: string | null;
-  interest_tags: string[];
   est_visit_minutes: number;
   maps_url: string;
 }

@@ -127,7 +127,7 @@ class FakeLLM:
                 "return_flight_id": self._return_id or None,
                 "hotel_id": self._hotel_id or None,
                 "poi_ids": self._poi_ids,
-                "commentary": "Cheapest workable flights, the best-rated stay, and your interests packed day by day.",
+                "commentary": "Cheapest workable flights, the best-rated stay, and the city's must-see sights packed day by day.",
             },
         )
 

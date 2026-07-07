@@ -15,7 +15,6 @@ TRIP_BODY = {
     "return_date": "2026-08-15",
     "budget": 400000,
     "travelers": 2,
-    "interests": ["art", "history"],
 }
 
 

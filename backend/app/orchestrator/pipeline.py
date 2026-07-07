@@ -35,9 +35,11 @@ SYSTEM_PROMPT = """You are a travel-planning agent. Never invent data — only \
 select options returned by tools, by their exact ids. Flow: search_flights -> \
 get_return_flights(chosen outbound id) -> search_hotels -> search_attractions \
 -> finalize_plan. Return prices are FINAL round-trip totals; flights + hotel \
-must fit the budget with room for food. Prefer well-rated options matching \
-the traveler's interests; rank poi_ids by priority, ~5 per day. commentary: \
-2-3 warm sentences, no prices or times. If a tool errors, follow its advice."""
+must fit the budget with room for food. For attractions, prioritize the \
+city's most iconic, world-famous must-see landmarks (highest review counts) — \
+a first-time visitor should not miss them. Rank poi_ids by priority, ~5 per \
+day. commentary: 2-3 warm sentences, no prices or times. If a tool errors, \
+follow its advice."""
 
 
 class OrchestrationError(Exception):
@@ -45,12 +47,11 @@ class OrchestrationError(Exception):
 
 
 def _context_message(request: TripRequest, currency: str) -> str:
-    interests = ", ".join(request.interests) or "general sightseeing"
     return (
         f"Trip: {request.origin}->{request.destination} ({request.destination_city}), "
         f"{request.departure_date} to {request.return_date}, {request.full_days} sightseeing day(s), "
         f"{request.travelers} traveler(s), budget {request.budget:.0f} {currency} "
-        f"(~45% flights / ~35% hotel). Interests: {interests}. Start with search_flights."
+        f"(~45% flights / ~35% hotel). Start with search_flights."
     )
 
 
@@ -223,12 +224,17 @@ def _estimate_costs(
         client = Groq(api_key=settings.groq_api_key)
         names_list = "\n".join(f"- {p.name}" for p in attractions)
         prompt = (
-            f"For each attraction in {city}, estimate the typical adult "
-            f"entry/ticket cost. If free to visit (public parks, streets, churches with free entry), say \"Free\". "
-            f"Also estimate the average cost of a meal in {city} for one adult at a slightly above-average restaurant. "
-            f"CRITICAL: ALL costs MUST be converted to and returned strictly in {settings.currency} (e.g., if the local currency is different, you must convert it to {settings.currency}). "
-            f"Format every price with the {settings.currency} currency symbol. "
-            f"Return ONLY a valid JSON object with two keys: 'meal_cost' containing the meal estimate string, and 'attractions' containing a JSON object mapping the exact attraction name to its cost string.\n\n"
+            f"You are a local travel expert for {city}. For each named attraction below, give the "
+            f"current standard ADULT entry/ticket price — use the actual published gate price you know "
+            f"for that specific place, not a generic guess. "
+            f"If the place is genuinely free to enter (public parks, squares, streets, viewpoints, most churches/temples), return exactly \"Free\". "
+            f"For pay-to-enter sights (museums, towers, theme parks, cable cars, palaces), give a realistic price — never mark a paid attraction as Free. "
+            f"Also estimate the typical cost of one adult meal in {city} at a mid-range restaurant.\n\n"
+            f"CRITICAL — CURRENCY: think of each price in the attraction's LOCAL currency first, then convert it accurately to {settings.currency} "
+            f"using realistic exchange rates. Every value in your answer MUST be expressed in {settings.currency} and prefixed with its symbol/code. "
+            f"Round to a clean number.\n\n"
+            f"Return ONLY a valid JSON object with two keys: 'meal_cost' (the meal estimate string) and "
+            f"'attractions' (an object mapping each exact attraction name to its price string).\n\n"
             f"Attractions:\n{names_list}"
         )
         resp = client.chat.completions.create(
@@ -237,8 +243,8 @@ def _estimate_costs(
                 {"role": "system", "content": _COST_SYSTEM},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
-            max_tokens=800,
+            temperature=0.1,
+            max_tokens=900,
         )
         text = (resp.choices[0].message.content or "").strip()
         if "```" in text:

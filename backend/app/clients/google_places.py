@@ -83,7 +83,7 @@ def _estimate_visit_minutes(types: list[str], kind: str) -> int:
     return 75
 
 
-def _parse_place(raw: dict[str, Any], kind: str, interest_tag: str | None) -> POI | None:
+def _parse_place(raw: dict[str, Any], kind: str) -> POI | None:
     loc = raw.get("location")
     if not loc or "latitude" not in loc or "longitude" not in loc:
         return None
@@ -100,7 +100,6 @@ def _parse_place(raw: dict[str, Any], kind: str, interest_tag: str | None) -> PO
         price_level=_PRICE_LEVELS.get(raw.get("priceLevel", "")),
         address=raw.get("formattedAddress"),
         opening_hours=_parse_opening_hours(raw.get("regularOpeningHours")),
-        interest_tags=[interest_tag] if interest_tag else [],
         est_visit_minutes=_estimate_visit_minutes(types, kind),
     )
 
@@ -116,7 +115,6 @@ class PlacesClient(BaseClient):
         self,
         query: str,
         kind: str = "attraction",
-        interest_tag: str | None = None,
         max_results: int = 20,
         no_cache: bool = False,
     ) -> list[POI]:
@@ -135,11 +133,13 @@ class PlacesClient(BaseClient):
             )
 
         raw = self._cached_json(cache_params, fetch, no_cache=no_cache)
-        parsed = [_parse_place(p, kind, interest_tag) for p in raw.get("places", [])]
+        parsed = [_parse_place(p, kind) for p in raw.get("places", [])]
         return [p for p in parsed if p is not None and p.name]
 
-    def search_attractions(self, city: str, interest: str) -> list[POI]:
-        return self.search(f"top {interest} attractions in {city}", kind="attraction", interest_tag=interest)
+    def search_attractions(self, city: str, query: str) -> list[POI]:
+        """`query` is a full attraction-category phrase (e.g. "top tourist
+        attractions") that gets scoped to the city."""
+        return self.search(f"{query} in {city}", kind="attraction")
 
     def search_restaurants(self, city: str, area_hint: str | None = None) -> list[POI]:
         where = f"{area_hint}, {city}" if area_hint else city

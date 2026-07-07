@@ -98,10 +98,9 @@ def test_hotels_max_price_enforced_locally(fixture_json):
 def test_places_parsing_and_hours_mapping(fixture_json):
     respx.post(SEARCH_TEXT_URL).respond(json=fixture_json("places_searchtext.json"))
     client = PlacesClient(api_key="k", **NO_BACKOFF)
-    pois = client.search_attractions("Paris", "art")
+    pois = client.search_attractions("Paris", "top tourist attractions")
 
     louvre = next(p for p in pois if p.name == "Louvre Museum")
-    assert louvre.interest_tags == ["art"]
     assert louvre.est_visit_minutes == 120  # museum heuristic
     # Google day 0 = Sunday → our weekday 6; day 1 (Monday) absent → closed
     assert louvre.opening_hours.is_open_during(6, 600, 800)

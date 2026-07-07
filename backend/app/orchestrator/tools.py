@@ -25,6 +25,16 @@ from ..models import DataQualityNote, FlightOption, HotelOption, POI, TripReques
 MAX_OPTIONS_SHOWN = 6
 MAX_BUDGET_REJECTIONS = 2
 
+# Broad, overlapping queries chosen to surface a city's iconic must-sees across
+# categories (landmarks, viewpoints, theme parks, temples, museums) rather than
+# niche spots. Results are deduped by place_id and ranked by popularity.
+ATTRACTION_QUERIES = [
+    "top tourist attractions",
+    "most famous landmarks and iconic sights",
+    "best things to do",
+    "top museums and cultural attractions",
+]
+
 TOOL_SCHEMAS = [
     {
         "type": "function",
@@ -66,7 +76,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "search_attractions",
-            "description": "Attractions matching the traveler's interests, with ids and ratings.",
+            "description": "The city's top tourist attractions and famous landmarks, with ids, ratings, and review counts (higher review counts = more iconic/must-see).",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
@@ -119,7 +129,7 @@ def _poi_summary(p: POI) -> dict:
         "id": p.id,
         "name": p.name,
         "rating": p.rating,
-        "tags": "|".join(p.interest_tags) or None,
+        "reviews": p.review_count,
         "mins": p.est_visit_minutes,
     }
 
@@ -224,36 +234,33 @@ class Toolbox:
     def _search_attractions(self, args: dict) -> dict:
         self.emit("attractions", "Hunting down the good stuff…")
         r = self.request
-        interests = r.interests or ["sightseeing"]
         seen_place_ids: set[str] = set()
         pois: list[POI] = []
         failures = 0
-        for interest in interests[:5]:
+        for query in ATTRACTION_QUERIES:
             try:
-                found = self.places.search_attractions(r.destination_city, interest)
+                found = self.places.search_attractions(r.destination_city, query)
             except ApiError as exc:
                 failures += 1
-                self._note("places", "degraded", f"attraction search '{interest}' failed: {exc}")
+                self._note("places", "degraded", f"attraction search '{query}' failed: {exc}")
                 continue
             for p in found:
                 if p.place_id in seen_place_ids:
-                    # merge the extra interest tag onto the already-known POI
-                    known = next((k for k in pois if k.place_id == p.place_id), None)
-                    if known is not None:
-                        known.interest_tags = sorted(set(known.interest_tags) | set(p.interest_tags))
                     continue
                 seen_place_ids.add(p.place_id)
                 pois.append(p)
-        if failures == len(interests[:5]):
+        if failures == len(ATTRACTION_QUERIES):
             self._places_failed = True
             raise ApiError("places", "all attraction searches failed")
         self.store.add_all("poi", pois)
         per_day = 5
-        cap = min(len(pois), min(per_day * self.request.full_days + 5, 24))
+        # Show a generous, popularity-ranked shortlist so the model has the
+        # city's iconic must-sees to choose from for every day.
+        cap = min(len(pois), min(per_day * self.request.full_days + 10, 30))
         shown = sorted(pois, key=lambda p: -p.value_score)[:cap]
         return {
             "options": [_poi_summary(p) for p in shown],
-            "note": f"pick ~{per_day}/day for {self.request.full_days} day(s), ranked",
+            "note": f"ranked by popularity; pick ~{per_day}/day for {self.request.full_days} day(s), favoring the most iconic must-sees",
         }
 
     def _finalize_plan(self, args: dict) -> dict:

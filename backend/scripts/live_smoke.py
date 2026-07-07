@@ -27,7 +27,6 @@ REQUEST = TripRequest(
     return_date=date(2026, 8, 15),
     budget=250000,
     travelers=1,
-    interests=["art", "history"],
 )
 
 

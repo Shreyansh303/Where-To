@@ -1,3 +1,4 @@
+import math
 from typing import Literal
 from urllib.parse import quote
 
@@ -18,15 +19,16 @@ class POI(BaseModel):
     price_level: int | None = None  # 0 (free) … 4
     address: str | None = None
     opening_hours: OpeningHours | None = None
-    interest_tags: list[str] = []  # which user interests surfaced this POI
     est_visit_minutes: int = 90
 
     @property
     def value_score(self) -> float:
-        """Rating weighted by interest match; the solver drops lowest-value
-        POIs first when a day overflows."""
+        """Rating weighted by popularity (review volume), so world-famous,
+        must-see landmarks outrank obscure high-rated spots. The solver drops
+        lowest-value POIs first when a day overflows."""
         base = self.rating if self.rating is not None else 3.0
-        return base * (1.0 + 0.3 * len(self.interest_tags))
+        popularity = math.log10((self.review_count or 0) + 10)  # ~1 … 6+
+        return base * popularity
 
     @computed_field  # serialized into API responses for the frontend link chip
     @property

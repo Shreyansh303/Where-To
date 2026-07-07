@@ -4,17 +4,6 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { createTrip } from "@/lib/api";
 
-const INTEREST_OPTIONS = [
-  "art",
-  "history",
-  "food",
-  "nature",
-  "architecture",
-  "museums",
-  "shopping",
-  "nightlife",
-];
-
 function futureDate(daysFromNow: number): string {
   const d = new Date();
   d.setDate(d.getDate() + daysFromNow);
@@ -30,15 +19,8 @@ export default function HomePage() {
   const [returnDate, setReturnDate] = useState(futureDate(35));
   const [budget, setBudget] = useState(250000);
   const [travelers, setTravelers] = useState(1);
-  const [interests, setInterests] = useState<string[]>(["art", "history"]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  function toggleInterest(tag: string) {
-    setInterests((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
-  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -53,7 +35,6 @@ export default function HomePage() {
         return_date: returnDate,
         budget,
         travelers,
-        interests,
       });
       router.push(`/plan/${tripId}`);
     } catch (err) {
@@ -164,29 +145,6 @@ export default function HomePage() {
                 onChange={(e) => setTravelers(Number(e.target.value))}
                 required
               />
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <label className={labelClass}>Interests</label>
-            <div className="flex flex-wrap gap-2">
-              {INTEREST_OPTIONS.map((tag) => {
-                const active = interests.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleInterest(tag)}
-                    className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-                      active
-                        ? "border-emerald-500 bg-emerald-500 text-white shadow-sm"
-                        : "border-zinc-200 bg-white text-zinc-600 hover:border-emerald-300 hover:text-emerald-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-emerald-600 dark:hover:text-emerald-400"
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
             </div>
           </div>
 

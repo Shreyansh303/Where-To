@@ -14,7 +14,7 @@ DAY1 = date(2026, 8, 11)  # Tuesday
 DAY2 = date(2026, 8, 12)  # Wednesday
 
 
-def make_poi(pid, lat, lng, rating=4.5, visit=60, hours=None, kind="attraction", interests=None):
+def make_poi(pid, lat, lng, rating=4.5, visit=60, hours=None, kind="attraction"):
     return POI(
         id=pid,
         place_id=f"g_{pid}",
@@ -24,7 +24,6 @@ def make_poi(pid, lat, lng, rating=4.5, visit=60, hours=None, kind="attraction",
         rating=rating,
         est_visit_minutes=visit,
         opening_hours=hours,
-        interest_tags=interests or [],
     )
 
 
