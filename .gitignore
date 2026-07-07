@@ -9,6 +9,8 @@ venv/
 # Env & secrets
 .env
 .env.local
+DEPLOY.md
+.env.example
 
 # Cache / runtime artifacts
 *.sqlite3
