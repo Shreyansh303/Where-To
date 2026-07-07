@@ -20,10 +20,9 @@ Deploy the **backend first** — you need its URL to configure the frontend.
    - `SERPAPI_API_KEY`
    - `GOOGLE_MAPS_API_KEY`
    - `GROQ_API_KEY`
-   - `CORS_ORIGINS` — set after step 2 of the frontend (your Vercel URL). You can
-     leave it empty for now and add it once you have the Vercel domain.
    The rest (`GROQ_MODEL`, `CURRENCY`, `FAKE_APIS=0`, `CORS_ORIGIN_REGEX`) come
-   from the blueprint.
+   from the blueprint. **You don't need to set `CORS_ORIGINS`** — the
+   `CORS_ORIGIN_REGEX` already allows every `*.vercel.app` origin (see step 3).
 4. Deploy. When it's live, note the URL, e.g. `https://where-to-backend.onrender.com`.
    Check `https://<that-url>/api/health` → `{"status":"ok","fake_apis":false}`.
 
@@ -51,12 +50,15 @@ Notes
 
 ---
 
-## 3. Wire CORS back to the backend
+## 3. CORS
 
-1. In Render → the service → **Environment**, set `CORS_ORIGINS` to your Vercel
-   production URL (e.g. `https://where-to.vercel.app`) and save (this redeploys).
-2. Vercel **preview** deploys get per-build URLs; the blueprint's
-   `CORS_ORIGIN_REGEX=https://.*\.vercel\.app` already allows those.
+Nothing to do if your frontend is on a `*.vercel.app` domain — the blueprint's
+`CORS_ORIGIN_REGEX=https://.*\.vercel\.app` already allows your production **and**
+preview URLs.
+
+Only if you attach a **custom domain** (not `*.vercel.app`): in Render → the
+service → **Environment**, add `CORS_ORIGINS` = your domain (e.g.
+`https://whereto.com`) and save (this redeploys).
 
 Test: open the Vercel URL, plan a Hong Kong trip, confirm the itinerary streams
 in and renders.
@@ -70,8 +72,8 @@ in and renders.
 | Render   | `SERPAPI_API_KEY`       | your key                                         |
 | Render   | `GOOGLE_MAPS_API_KEY`   | your key (Places API New + Routes API enabled)   |
 | Render   | `GROQ_API_KEY`          | your key                                          |
-| Render   | `CORS_ORIGINS`          | `https://<your-app>.vercel.app`                  |
 | Render   | `CORS_ORIGIN_REGEX`     | `https://.*\.vercel\.app` (from blueprint)       |
+| Render   | `CORS_ORIGINS`          | *(optional)* only for a custom (non-vercel.app) domain |
 | Vercel   | `NEXT_PUBLIC_API_URL`   | `https://<your-service>.onrender.com`            |
 
 Secrets never live in the repo — `backend/.env` is gitignored; hosts inject them.
