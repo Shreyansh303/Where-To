@@ -2,6 +2,8 @@
 
 Give it an origin, a destination, dates and a budget — it plans the whole trip from **live data**: real flights, a real hotel, a day-by-day itinerary of real attractions with real opening hours, meals along the route, and local-transport insight. **Every concrete fact in the output is traceable to a specific API response. Nothing is invented.**
 
+Check it out: https://where-to-tau.vercel.app/
+
 Python + FastAPI backend · Next.js + Tailwind frontend · Groq (`llama-3.3-70b-versatile`) for orchestration and research.
 
 ## Why this project is interesting
