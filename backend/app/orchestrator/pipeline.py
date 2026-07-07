@@ -160,32 +160,22 @@ def run_pipeline(
     except ApiError as exc:
         data_quality.append(DataQualityNote(source="places", level="degraded", message=f"restaurant search failed: {exc}"))
 
-    # Web-grounded planning brief: real visit durations, whole-day flags, ticket
-    # prices, and the city's canonical must-see list, distilled from travel-guide
-    # text. Best-effort — a failure leaves us on the type-based heuristics.
+    # Web-grounded planning brief: the city's canonical must-see list plus real
+    # visit durations, whole-day flags, and ticket prices, distilled from
+    # travel-guide text. Best-effort — a failure leaves us on popularity + the
+    # type-based duration heuristics.
     emit("research", f"Reading up on {request.destination_city}…")
     brief = _build_city_brief(settings, store, request.destination_city, data_quality)
     if brief is not None:
+        # Guarantee each iconic must-see is a real grounded POI — targeted Places
+        # lookups for the ones the broad attraction search happened to miss.
+        _ground_must_sees(brief, request.destination_city, places, store, data_quality)
         _apply_brief_durations(brief, store)
 
-    # Deterministic top-up: if the LLM picked too little material, fill from the
-    # remaining grounded pool by value so the solver has enough for dense days.
-    # Full-day attractions each consume a whole day, so they need no neighbours —
-    # only the ordinary days get topped up to ~5 stops. Must-see landmarks from
-    # the brief are pulled in first. Still 100% real, store-registered POIs.
-    selected_ids = list(dict.fromkeys(selections.poi_ids))
-    full_day_selected = sum(1 for pid in selected_ids if store.get_poi(pid, "attraction").full_day)
-    normal_days = max(request.full_days - full_day_selected, 0)
-    target = full_day_selected + 5 * normal_days
-    if len(selected_ids) < target:
-        chosen = set(selected_ids)
-        must_see = _must_see_matcher(brief)
-        pool = sorted(
-            (p for p in store.all_of_prefix("poi") if isinstance(p, POI) and p.id not in chosen),
-            key=lambda p: (0 if must_see(p.name) else 1, -p.value_score),
-        )
-        selected_ids += [p.id for p in pool[: target - len(selected_ids)]]
-
+    # Attraction selection is deterministic, not LLM-authored: with interests
+    # gone, the model's picks add noise (it favoured museums over Hong Kong's
+    # iconic sights). See `_select_attractions`.
+    selected_ids = _select_attractions(store, request.full_days, brief)
     selected_pois = [store.get_poi(pid, "attraction") for pid in selected_ids]
     hotel = store.get_hotel(selections.hotel_id) if selections.hotel_id else None
     fallback_points = [p.location for p in selected_pois] or [r.location for r in restaurants]
@@ -308,6 +298,59 @@ def _build_city_brief(
             DataQualityNote(source="places", level="degraded", message=f"city research failed ({exc}) — using heuristics")
         )
         return None
+
+
+MAX_MUST_SEE_LOOKUPS = 8
+
+
+def _ground_must_sees(
+    brief: CityBrief,
+    city: str,
+    places: PlacesClient,
+    store: GroundingStore,
+    data_quality: list[DataQualityNote],
+) -> None:
+    """Make sure every brief must-see exists as a real grounded POI. Iconic
+    sights the broad attraction search missed get a targeted Places lookup so
+    they can never be silently absent from the candidate pool."""
+    attractions = [
+        p for p in store.all_of_prefix("poi") if isinstance(p, POI) and p.kind == "attraction"
+    ]
+    known = [_norm(p.name) for p in attractions]
+    known_place_ids = {p.place_id for p in attractions}
+    for name in brief.must_see[:MAX_MUST_SEE_LOOKUPS]:
+        n = _norm(name)
+        if not n or any(n in k or k in n for k in known):
+            continue
+        try:
+            found = places.search(f"{name}, {city}", kind="attraction", max_results=1)
+        except ApiError as exc:
+            data_quality.append(
+                DataQualityNote(source="places", level="degraded", message=f"must-see lookup '{name}' failed: {exc}")
+            )
+            continue
+        if found and found[0].place_id not in known_place_ids:
+            store.add_all("poi", found[:1])
+            known.append(_norm(found[0].name))
+            known_place_ids.add(found[0].place_id)
+
+
+def _select_attractions(store: GroundingStore, full_days: int, brief: CityBrief | None) -> list[str]:
+    """Pick which grounded attractions the solver schedules, ranked by iconicity
+    (brief must-sees first, then popularity by review volume). Full-day outings
+    each claim a day; the ordinary days hold ~5 stops. Every grounded must-see is
+    force-included as a candidate so a famous sight is never crowded out by the
+    LLM's picks or by high-review museums."""
+    must_see = _must_see_matcher(brief)
+    pool = [p for p in store.all_of_prefix("poi") if isinstance(p, POI) and p.kind == "attraction"]
+    ranked = sorted(pool, key=lambda p: (0 if must_see(p.name) else 1, -p.value_score))
+    full_day_pois = [p for p in ranked if p.full_day]
+    normal_pois = [p for p in ranked if not p.full_day]
+    full_day_take = full_day_pois[:full_days]
+    normal_days = max(full_days - len(full_day_take), 0)
+    picked = full_day_take + normal_pois[: 5 * normal_days]
+    must_see_pois = [p for p in ranked if must_see(p.name)]  # never drop an iconic sight
+    return list(dict.fromkeys(p.id for p in picked + must_see_pois))
 
 
 def _apply_brief_durations(brief: CityBrief, store: GroundingStore) -> None:

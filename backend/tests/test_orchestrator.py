@@ -145,6 +145,50 @@ def test_routes_degradation_is_flagged(tmp_path):
     assert any(n.source == "routes" and n.level == "degraded" for n in plan.data_quality)
 
 
+def _poi(name: str, reviews: int, rating: float = 4.5, full_day: bool = False):
+    from app.models import LatLng, POI
+
+    return POI(
+        id="",
+        place_id=f"g_{name}",
+        name=name,
+        kind="attraction",
+        location=LatLng(lat=22.3, lng=114.1),
+        rating=rating,
+        review_count=reviews,
+        is_full_day=full_day,
+    )
+
+
+def test_select_attractions_forces_in_all_must_sees():
+    # Iconic must-sees have modest review counts; museums are hugely popular.
+    # A single-day trip has only ~5 ordinary slots, yet every must-see must
+    # still be a candidate — never crowded out by the popular museums.
+    from app.models import CityBrief
+
+    store = GroundingStore()
+    icons = store.add_all("poi", [_poi(f"Icon {i}", reviews=200) for i in range(8)])
+    museums = store.add_all("poi", [_poi(f"Museum {i}", reviews=90000) for i in range(3)])
+    brief = CityBrief(city="Hong Kong", must_see=[p.name for p in icons])
+
+    ids = pipeline_module._select_attractions(store, full_days=1, brief=brief)
+
+    assert all(p.id in ids for p in icons), "every must-see must be selected"
+    assert not any(m.id in ids for m in museums), "popular non-must-see museums don't crowd them out"
+
+
+def test_select_attractions_falls_back_to_popularity_without_brief():
+    # No brief (research failed): the most-reviewed sights win, not obscure ones.
+    store = GroundingStore()
+    famous = store.add_all("poi", [_poi("Big Buddha", reviews=80000)])[0]
+    obscure = store.add_all("poi", [_poi(f"Tiny Spot {i}", reviews=30) for i in range(10)])
+
+    ids = pipeline_module._select_attractions(store, full_days=1, brief=None)
+
+    assert famous.id in ids
+    assert sum(1 for o in obscure if o.id in ids) < len(obscure)
+
+
 def test_city_brief_overrides_duration_and_price(tmp_path, monkeypatch):
     # A researched brief marks the Louvre a whole-day outing with a sourced
     # price; the plan must reflect the override — Louvre alone on its day,
