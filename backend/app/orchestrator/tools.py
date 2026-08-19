@@ -43,7 +43,7 @@ TOOL_SCHEMAS = [
             "description": "Round-trip flight options (outbound leg), with ids and round-trip prices.",
             "parameters": {
                 "type": "object",
-                "properties": {"max_price": {"type": "integer"}},
+                "properties": {"max_price": {"type": ["integer", "null"]}},
                 "required": [],
             },
         },
@@ -67,7 +67,7 @@ TOOL_SCHEMAS = [
             "description": "Hotels for the whole stay, with ids and total stay prices.",
             "parameters": {
                 "type": "object",
-                "properties": {"max_price": {"type": "integer"}},
+                "properties": {"max_price": {"type": ["integer", "null"]}},
                 "required": [],
             },
         },

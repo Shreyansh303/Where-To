@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
 
     # LLM
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
 
     # Money — passed straight to SerpApi and used for every displayed price
     currency: str = "INR"
