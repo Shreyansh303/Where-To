@@ -264,23 +264,15 @@ def _build_city_brief(
     if settings.fake_apis or not settings.serpapi_api_key or not settings.groq_api_key:
         return None
     try:
-        from groq import Groq
-
         cache = Cache(settings.cache_path, ttls={"research": settings.cache_ttl_research})
         search = SearchClient(settings.serpapi_api_key, cache=cache)
-        groq = Groq(api_key=settings.groq_api_key)
+        # Reuse GroqLLM so this extraction gets the same 429 retry +
+        # reasoning_effort="low" as the orchestration loop; without it the call
+        # is starved by the loop's token burst and the brief silently degrades.
+        llm = GroqLLM(settings.groq_api_key, settings.groq_model)
 
         def chat_complete(system: str, user: str) -> str:
-            resp = groq.chat.completions.create(
-                model=settings.groq_model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                temperature=0.1,
-                max_tokens=1400,
-            )
-            return resp.choices[0].message.content or ""
+            return llm.complete(system, user, max_tokens=1400)
 
         names = [
             p.name
@@ -403,9 +395,7 @@ def _estimate_costs(
     if not attractions or settings.fake_apis:
         return {}, None
     try:
-        from groq import Groq
-
-        client = Groq(api_key=settings.groq_api_key)
+        llm = GroqLLM(settings.groq_api_key, settings.groq_model)
         names_list = "\n".join(f"- {p.name}" for p in attractions)
         prompt = (
             f"You are a local travel expert for {city}. For each named attraction below, give the "
@@ -421,16 +411,7 @@ def _estimate_costs(
             f"'attractions' (an object mapping each exact attraction name to its price string).\n\n"
             f"Attractions:\n{names_list}"
         )
-        resp = client.chat.completions.create(
-            model=settings.groq_model,
-            messages=[
-                {"role": "system", "content": _COST_SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.1,
-            max_tokens=900,
-        )
-        text = (resp.choices[0].message.content or "").strip()
+        text = llm.complete(_COST_SYSTEM, prompt, max_tokens=900).strip()
         if "```" in text:
             text = text.split("```")[1]
             if text.startswith("json"):

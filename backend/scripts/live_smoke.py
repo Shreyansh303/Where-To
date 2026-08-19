@@ -6,7 +6,7 @@ Usage:  python scripts/live_smoke.py [output_json_path]
 
 import json
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -19,12 +19,16 @@ from app.models import TripRequest
 from app.orchestrator.llm import GroqLLM
 from app.orchestrator.pipeline import run_pipeline
 
+# Relative to today so the test never goes stale (SerpApi returns no flights
+# for past dates, which would starve the agent loop of options).
+_DEPARTURE = date.today() + timedelta(days=30)
+
 REQUEST = TripRequest(
     origin="DEL",
     destination="HKG",
     destination_city="Hong Kong",
-    departure_date=date(2026, 8, 10),
-    return_date=date(2026, 8, 16),  # 6 nights → 5 sightseeing days
+    departure_date=_DEPARTURE,
+    return_date=_DEPARTURE + timedelta(days=6),  # 6 nights → 5 sightseeing days
     budget=350000,
     travelers=1,
 )

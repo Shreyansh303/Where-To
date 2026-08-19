@@ -43,27 +43,21 @@ class GroqLLM:
         self.backoff_base = backoff_base
         self.max_sleep = max_sleep
 
-    def chat(self, messages: list[dict], tools: list[dict]) -> LLMReply:
+    # reasoning_effort="low": gpt-oss is a reasoning model whose default
+    # (medium) chain-of-thought filled the entire output-token budget on every
+    # call — pushing tokens/minute past the free-tier cap and, in the tool
+    # loop, truncating the tool call so it never finalized. "low" keeps the
+    # output small; reasoning comes back in a separate field, so content and
+    # tool_calls parsing is unaffected.
+    def _create_with_retry(self, **kwargs):
+        """Call the Groq completions API, retrying on 429 (waiting out the
+        per-minute token window) and on transient 5xx/connection errors."""
         from groq import APIConnectionError, InternalServerError, RateLimitError
 
-        # reasoning_effort="low": gpt-oss is a reasoning model whose default
-        # (medium) chain-of-thought filled the entire 600-token output budget
-        # every turn — pushing tokens/minute past the free-tier cap and
-        # truncating the tool call so the loop never finalized. "low" keeps the
-        # call intact and cuts per-turn output ~5x. Reasoning comes back in a
-        # separate field, so content/tool_calls parsing is unaffected.
         response = None
         for attempt in range(self.max_retries + 1):
             try:
-                response = self._client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    tools=tools,
-                    tool_choice="auto",
-                    temperature=0.2,
-                    max_tokens=600,  # replies are tool calls or short prose
-                    reasoning_effort="low",
-                )
+                response = self._client.chat.completions.create(**kwargs)
                 break
             except RateLimitError as exc:  # 429 TPM: wait out the window, retry
                 if attempt == self.max_retries:
@@ -76,6 +70,18 @@ class GroqLLM:
 
         if response.usage is not None:
             self.total_tokens += response.usage.total_tokens
+        return response
+
+    def chat(self, messages: list[dict], tools: list[dict]) -> LLMReply:
+        response = self._create_with_retry(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            temperature=0.2,
+            max_tokens=600,  # replies are tool calls or short prose
+            reasoning_effort="low",
+        )
         msg = response.choices[0].message
         calls = []
         for tc in msg.tool_calls or []:
@@ -85,6 +91,22 @@ class GroqLLM:
                 args = {}
             calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
         return LLMReply(content=msg.content, tool_calls=calls)
+
+    def complete(self, system: str, user: str, *, max_tokens: int = 900, temperature: float = 0.1) -> str:
+        """Plain (non-tool) completion with the same retry as chat(). Used by
+        the research-brief and cost-estimate steps so they survive the
+        per-minute token crunch instead of silently degrading to heuristics."""
+        response = self._create_with_retry(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            reasoning_effort="low",
+        )
+        return response.choices[0].message.content or ""
 
     def _retry_after(self, exc: Exception, attempt: int) -> float:
         """Seconds to wait before retrying a 429 — prefer the server's
