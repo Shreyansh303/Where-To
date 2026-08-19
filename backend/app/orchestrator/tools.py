@@ -21,7 +21,8 @@ from ..models import DataQualityNote, FlightOption, HotelOption, POI, TripReques
 
 # Token economy: every tool result is re-sent to the LLM on each subsequent
 # turn, so summaries and schema descriptions are kept aggressively terse.
-# Groq free tier is ~12K tokens/minute — the whole loop must fit well under.
+# gpt-oss-120b free tier is 8K tokens/minute — the whole loop must fit well
+# under it (GroqLLM also runs reasoning_effort="low" and retries on 429).
 MAX_OPTIONS_SHOWN = 6
 MAX_BUDGET_REJECTIONS = 2
 

@@ -7,6 +7,8 @@ graceful-degradation fallback when the real model can't produce a valid plan.
 """
 
 import json
+import re
+import time
 from dataclasses import dataclass, field
 
 
@@ -24,22 +26,54 @@ class LLMReply:
 
 
 class GroqLLM:
-    def __init__(self, api_key: str, model: str):
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        max_retries: int = 3,
+        backoff_base: float = 1.0,
+        max_sleep: float = 22.0,
+    ):
         from groq import Groq
 
         self._client = Groq(api_key=api_key)
         self.model = model
         self.total_tokens = 0  # cumulative prompt+completion, for cost visibility
+        self.max_retries = max_retries
+        self.backoff_base = backoff_base
+        self.max_sleep = max_sleep
 
     def chat(self, messages: list[dict], tools: list[dict]) -> LLMReply:
-        response = self._client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
-            temperature=0.2,
-            max_tokens=600,  # replies are tool calls or short prose
-        )
+        from groq import APIConnectionError, InternalServerError, RateLimitError
+
+        # reasoning_effort="low": gpt-oss is a reasoning model whose default
+        # (medium) chain-of-thought filled the entire 600-token output budget
+        # every turn — pushing tokens/minute past the free-tier cap and
+        # truncating the tool call so the loop never finalized. "low" keeps the
+        # call intact and cuts per-turn output ~5x. Reasoning comes back in a
+        # separate field, so content/tool_calls parsing is unaffected.
+        response = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = self._client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
+                    temperature=0.2,
+                    max_tokens=600,  # replies are tool calls or short prose
+                    reasoning_effort="low",
+                )
+                break
+            except RateLimitError as exc:  # 429 TPM: wait out the window, retry
+                if attempt == self.max_retries:
+                    raise
+                time.sleep(self._retry_after(exc, attempt))
+            except (APIConnectionError, InternalServerError) as exc:  # transient
+                if attempt == self.max_retries:
+                    raise
+                time.sleep(min(self.backoff_base * (2**attempt), self.max_sleep))
+
         if response.usage is not None:
             self.total_tokens += response.usage.total_tokens
         msg = response.choices[0].message
@@ -51,6 +85,23 @@ class GroqLLM:
                 args = {}
             calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
         return LLMReply(content=msg.content, tool_calls=calls)
+
+    def _retry_after(self, exc: Exception, attempt: int) -> float:
+        """Seconds to wait before retrying a 429 — prefer the server's
+        Retry-After header, then the 'try again in Xs' hint in the error body,
+        then exponential backoff. Capped so one turn can't stall the plan."""
+        resp = getattr(exc, "response", None)
+        if resp is not None:
+            header = resp.headers.get("retry-after")
+            if header:
+                try:
+                    return min(float(header), self.max_sleep)
+                except ValueError:
+                    pass
+        match = re.search(r"try again in ([\d.]+)s", str(exc))
+        if match:
+            return min(float(match.group(1)) + 0.5, self.max_sleep)
+        return min(self.backoff_base * (2**attempt), self.max_sleep)
 
 
 class FakeLLM:
