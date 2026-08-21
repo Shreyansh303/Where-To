@@ -29,6 +29,17 @@ services:
         value: INR
       - key: FAKE_APIS
         value: "0"
+      # Miles — the post-plan chat assistant (non-secret defaults).
+      - key: CHAT_MODEL
+        value: openai/gpt-oss-20b
+      - key: CHAT_ENABLED
+        value: "1"  # set to 0 to disable the /chat endpoint entirely
+      # Retrieval mode. 0 = keyword-only (BM25): REQUIRED on the free 512MB
+      # plan, where loading the ONNX embedder OOM-kills the instance (exit 137).
+      # Set to 1 to enable HYBRID keyword + vector embeddings (better paraphrase
+      # matching) — only on an instance with more RAM to spare (~300MB+ headroom).
+      - key: CHAT_VECTORS
+        value: "0"
       # CORS — set CORS_ORIGINS to your Vercel production URL after the first
       # frontend deploy. The regex additionally allows Vercel preview URLs.
       - key: CORS_ORIGINS
