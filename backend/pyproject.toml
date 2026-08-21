@@ -10,6 +10,9 @@ dependencies = [
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
     "groq>=0.11",
+    # Local ONNX embeddings for chat retrieval — no torch, no embedding API.
+    # Optional at runtime: CHAT_VECTORS=0 runs Miles on BM25 alone.
+    "fastembed>=0.4",
 ]
 
 [project.optional-dependencies]

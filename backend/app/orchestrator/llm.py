@@ -92,21 +92,31 @@ class GroqLLM:
             calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
         return LLMReply(content=msg.content, tool_calls=calls)
 
-    def complete(self, system: str, user: str, *, max_tokens: int = 900, temperature: float = 0.1) -> str:
-        """Plain (non-tool) completion with the same retry as chat(). Used by
-        the research-brief and cost-estimate steps so they survive the
-        per-minute token crunch instead of silently degrading to heuristics."""
+    def converse(self, messages: list[dict], *, max_tokens: int = 350, temperature: float = 0.2) -> str:
+        """Plain (non-tool) multi-message completion with the same retry as
+        chat(). The chat assistant answers from retrieved text, so it needs the
+        message history but never the toolbox."""
         response = self._create_with_retry(
             model=self.model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
+            messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
             reasoning_effort="low",
         )
         return response.choices[0].message.content or ""
+
+    def complete(self, system: str, user: str, *, max_tokens: int = 900, temperature: float = 0.1) -> str:
+        """Single system+user completion. Used by the research-brief and
+        cost-estimate steps so they survive the per-minute token crunch
+        instead of silently degrading to heuristics."""
+        return self.converse(
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
 
     def _retry_after(self, exc: Exception, attempt: int) -> float:
         """Seconds to wait before retrying a 429 — prefer the server's

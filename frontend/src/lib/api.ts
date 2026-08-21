@@ -131,6 +131,32 @@ export interface StageEvent {
   status?: string;
 }
 
+/* --- Miles, the post-plan chat assistant --- */
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface Citation {
+  chunk_id: string;
+  label: string;
+  type: string;
+  day: number | null;
+  source_url: string | null;
+}
+
+export interface ChatRequest {
+  message: string;
+  history: ChatMessage[];
+}
+
+export interface ChatResponse {
+  answer: string;
+  citations: Citation[];
+  degraded: boolean;
+}
+
 export async function createTrip(body: TripRequestBody): Promise<string> {
   const res = await fetch(`${API_URL}/api/trips`, {
     method: "POST",
@@ -148,6 +174,24 @@ export async function createTrip(body: TripRequestBody): Promise<string> {
 export async function getTrip(tripId: string): Promise<TripStatus> {
   const res = await fetch(`${API_URL}/api/trips/${tripId}`);
   if (!res.ok) throw new Error(`Trip ${tripId} not found`);
+  return res.json();
+}
+
+export async function sendChat(
+  tripId: string,
+  message: string,
+  history: ChatMessage[],
+): Promise<ChatResponse> {
+  const body: ChatRequest = { message, history };
+  const res = await fetch(`${API_URL}/api/trips/${tripId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 429) {
+    throw new Error("That's a lot of questions at once — give me a minute.");
+  }
+  if (!res.ok) throw new Error("Miles couldn't answer that just now.");
   return res.json();
 }
 

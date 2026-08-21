@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import MilesChat from "@/components/MilesChat";
 import PlanView from "@/components/PlanView";
 import ProgressScreen from "@/components/ProgressScreen";
 import { StageEvent, TripPlan, eventsUrl, getTrip } from "@/lib/api";
@@ -84,6 +85,7 @@ export default function PlanPage() {
         <>
           <PlanView plan={state.plan} />
           <BackLink label="Plan another trip" />
+          <MilesChat tripId={id} />
         </>
       )}
 

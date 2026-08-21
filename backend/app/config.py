@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     # LLM
     groq_model: str = "openai/gpt-oss-120b"
 
+    # Chat ("Miles"). A separate, smaller model so post-plan Q&A draws on its
+    # own per-model rate budget instead of competing with orchestration.
+    chat_model: str = "openai/gpt-oss-20b"
+    chat_enabled: bool = True
+    # Kill-switch for the vector half of hybrid retrieval — turn it off if the
+    # ONNX embedder can't fit in the deployment's RAM; Miles runs BM25-only.
+    chat_vectors: bool = True
+
     # Money — passed straight to SerpApi and used for every displayed price
     currency: str = "INR"
 
