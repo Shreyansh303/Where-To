@@ -108,7 +108,10 @@ def answer_question(
     answer, citations = _resolve_citations(raw.strip(), retrieved)
     if not answer:
         return _extractive(retrieved)
-    return ChatReply(answer=answer, citations=citations, degraded=retriever.degraded_vectors)
+    # A real, model-written answer is never "reduced mode" — even keyword-only
+    # (vectors-off) retrieval still feeds the model, which polishes and cites.
+    # Only the extractive fallback below (LLM unreachable) is degraded to the user.
+    return ChatReply(answer=answer, citations=citations)
 
 
 def _trim(history: list[ChatMessage]) -> list[ChatMessage]:

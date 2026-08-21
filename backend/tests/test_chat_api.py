@@ -86,6 +86,24 @@ def test_full_width_citation_brackets_resolve():
     assert [c.chunk_id for c in cites] == ["b"]
 
 
+def test_keyword_only_mode_is_not_flagged_as_reduced():
+    # Vectors off (BM25-only, e.g. CHAT_VECTORS=0 on a small host) still feeds a
+    # real model-written answer — it must NOT trip the "reduced mode" banner,
+    # which is only for the LLM-down extractive fallback.
+    from app.chat import Chunk, Retriever
+    from app.chat.answer import ScriptedChatLLM, answer_question
+
+    chunks = [
+        Chunk(id="hotel", type="hotel", label="Your stay",
+              text="Your stay is the Palais Royal Grand, a 5-star hotel."),
+    ]
+    retriever = Retriever(chunks, embedder=None)  # keyword-only
+    assert retriever.degraded_vectors is True
+    reply = answer_question("Which hotel am I staying at?", [], retriever, ScriptedChatLLM())
+    assert reply.answer
+    assert reply.degraded is False
+
+
 def test_index_is_built_once_and_reused(planned):
     client, trip_id = planned
     job = client.app.state.jobs.get(trip_id)
