@@ -119,12 +119,13 @@ def _getting_around(destination_city: str) -> str:
     key = destination_city.strip().lower()
     if key in _CITY_TRANSPORT:
         return _CITY_TRANSPORT[key]
-    # Generic fallback for cities not in the curated map.
+    # Generic fallback for cities not in the curated map. Deliberately makes no
+    # claim about rail — many cities (e.g. Phuket) have no metro/subway/tram.
     return (
-        f"Most of {destination_city} can be explored using local public transit — "
-        f"look for metro or subway systems, city buses, and trams. "
-        f"Ride-hailing apps (Uber, Bolt, or local equivalents) are usually available for shorter trips. "
-        f"Consider picking up a day pass or transit card at the airport for unlimited rides."
+        f"Getting around {destination_city} is easiest with taxis and ride-hailing apps "
+        f"(Grab, Uber, or a trusted local equivalent) — handy for longer hops or late nights. "
+        f"Local buses and minibuses cover most routes on the cheap, and compact central areas "
+        f"are often best explored on foot."
     )
 
 

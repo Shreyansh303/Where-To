@@ -25,6 +25,13 @@ class LLMReply:
     tool_calls: list[ToolCall] = field(default_factory=list)
 
 
+def _is_tool_use_failed(exc: Exception) -> bool:
+    """Whether a Groq 400 is the `tool_use_failed` code (malformed tool-call
+    JSON), inspected defensively since the SDK carries the code in the body,
+    not as an attribute."""
+    return getattr(exc, "code", None) == "tool_use_failed" or "tool_use_failed" in str(exc)
+
+
 class GroqLLM:
     def __init__(
         self,
@@ -51,8 +58,10 @@ class GroqLLM:
     # tool_calls parsing is unaffected.
     def _create_with_retry(self, **kwargs):
         """Call the Groq completions API, retrying on 429 (waiting out the
-        per-minute token window) and on transient 5xx/connection errors."""
-        from groq import APIConnectionError, InternalServerError, RateLimitError
+        per-minute token window), on transient 5xx/connection errors, and on a
+        400 `tool_use_failed` — gpt-oss occasionally emits malformed tool-call
+        JSON that a fresh sample (temp 0.2) usually fixes. Other 400s re-raise."""
+        from groq import APIConnectionError, BadRequestError, InternalServerError, RateLimitError
 
         response = None
         for attempt in range(self.max_retries + 1):
@@ -66,6 +75,10 @@ class GroqLLM:
             except (APIConnectionError, InternalServerError) as exc:  # transient
                 if attempt == self.max_retries:
                     raise
+                time.sleep(min(self.backoff_base * (2**attempt), self.max_sleep))
+            except BadRequestError as exc:  # 400: only malformed tool-call JSON is retryable
+                if not _is_tool_use_failed(exc) or attempt == self.max_retries:
+                    raise  # genuine bad request won't fix on retry
                 time.sleep(min(self.backoff_base * (2**attempt), self.max_sleep))
 
         if response.usage is not None:
