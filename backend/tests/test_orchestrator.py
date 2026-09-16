@@ -189,6 +189,60 @@ def test_select_attractions_falls_back_to_popularity_without_brief():
     assert sum(1 for o in obscure if o.id in ids) < len(obscure)
 
 
+def test_select_attractions_caps_full_day_outings_in_park_heavy_city():
+    # A park-heavy city (Phuket): without a cap, one-full-day-per-day claims
+    # every sightseeing day and ZERO ordinary sights get selected. Full-day
+    # outings must take at most ~half the days, leaving room for regular sights.
+    store = GroundingStore()
+    parks = store.add_all("poi", [_poi(f"Park {i}", reviews=50000, full_day=True) for i in range(5)])
+    sights = store.add_all("poi", [_poi(f"Sight {i}", reviews=8000) for i in range(10)])
+
+    ids = pipeline_module._select_attractions(store, full_days=4, brief=None)
+
+    picked_parks = [p for p in parks if p.id in ids]
+    picked_sights = [s for s in sights if s.id in ids]
+    assert picked_sights, "regular sights must still be selected in a park-heavy city"
+    assert len(picked_parks) <= 4 // 2, "full-day outings capped at ~half the sightseeing days"
+    assert len(picked_parks) >= 1, "a genuine full-day park is still worth a day"
+
+
+def test_search_attractions_dedupes_same_name_across_place_ids():
+    # Google returns one real place under several place_ids; the same attraction
+    # must be grounded once, not scheduled twice and duplicated in the extras.
+    from app.models import LatLng, POI
+
+    def poi(name, place_id, reviews):
+        return POI(id="", place_id=place_id, name=name, kind="attraction",
+                   location=LatLng(lat=7.9, lng=98.3), rating=4.5, review_count=reviews)
+
+    duped = [
+        poi("Big Buddha", "gp_bigbuddha_a", 80000),
+        poi("BIG BUDDHA", "gp_bigbuddha_b", 60000),  # same place: different place_id and case
+        poi("Karon Beach", "gp_karon", 40000),
+    ]
+
+    class StubPlaces:
+        def search_attractions(self, city, query):
+            return [p.model_copy() for p in duped]
+
+    store = GroundingStore()
+    toolbox = Toolbox(
+        request=make_request(destination_city="Phuket"),
+        store=store,
+        flights=None,
+        hotels=None,
+        places=StubPlaces(),
+        emit=lambda s, m: None,
+    )
+    toolbox._search_attractions({})
+
+    grounded = store.all_of_prefix("poi")
+    names = [p.name for p in grounded]
+    assert len(grounded) == 2, "the two Big Buddha listings collapse to one"
+    assert sum(1 for n in names if "buddha" in n.lower()) == 1
+    assert "Karon Beach" in names
+
+
 def test_city_brief_overrides_duration_and_price(tmp_path, monkeypatch):
     # A researched brief marks the Louvre a whole-day outing with a sourced
     # price; the plan must reflect the override — Louvre alone on its day,

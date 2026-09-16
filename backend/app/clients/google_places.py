@@ -54,8 +54,16 @@ _VISIT_MINUTES = {
     "market": 60,
 }
 
-# Place types that are whole-day outings regardless of the duration heuristic.
+# Place types that *can* be whole-day outings — but only when their own hours
+# corroborate it (see `_derive_full_day`); the type alone isn't enough.
 _FULL_DAY_TYPES = {"amusement_park", "theme_park", "water_park"}
+
+# A park-typed place whose hours don't span the day (an evening show mis-tagged
+# `amusement_park`, or unknown hours) gets this bounded visit, not a whole day.
+_BOUNDED_PARK_MINUTES = 180
+# A genuine all-day park opens by late morning and stays open a wide span.
+_FULL_DAY_OPENS_BY = 11 * 60
+_FULL_DAY_WINDOW = 6 * 60
 
 
 def _parse_opening_hours(raw: dict[str, Any] | None) -> OpeningHours | None:
@@ -89,11 +97,38 @@ def _estimate_visit_minutes(types: list[str], kind: str) -> int:
     return 75
 
 
+def _has_wide_daytime_window(hours: OpeningHours) -> bool:
+    """True if some weekday opens by late morning and runs a wide span — the
+    signature of an all-day park rather than an evening event."""
+    return any(
+        open_min <= _FULL_DAY_OPENS_BY and close_min - open_min >= _FULL_DAY_WINDOW
+        for windows in hours.windows.values()
+        for open_min, close_min in windows
+    )
+
+
+def _derive_full_day(types: list[str], hours: OpeningHours | None, minutes: int) -> tuple[bool, int]:
+    """Corroborate a full-day place *type* against its real opening hours.
+    Google tags ~3h evening shows (e.g. Siam Niramit) as `amusement_park`; only
+    treat a park as a whole-day outing when its own hours span the day. Evening-
+    only, short, or unknown hours → a bounded multi-hour visit, not a whole day."""
+    if not (_FULL_DAY_TYPES & set(types)):
+        return False, minutes
+    if hours is not None and _has_wide_daytime_window(hours):
+        return True, minutes
+    return False, min(minutes, _BOUNDED_PARK_MINUTES)
+
+
 def _parse_place(raw: dict[str, Any], kind: str) -> POI | None:
     loc = raw.get("location")
     if not loc or "latitude" not in loc or "longitude" not in loc:
         return None
     types = raw.get("types", [])
+    hours = _parse_opening_hours(raw.get("regularOpeningHours"))
+    minutes = _estimate_visit_minutes(types, kind)
+    is_full_day = False
+    if kind == "attraction":
+        is_full_day, minutes = _derive_full_day(types, hours, minutes)
     return POI(
         id="",  # assigned by the grounding store
         place_id=raw.get("id", ""),
@@ -105,9 +140,9 @@ def _parse_place(raw: dict[str, Any], kind: str) -> POI | None:
         types=types,
         price_level=_PRICE_LEVELS.get(raw.get("priceLevel", "")),
         address=raw.get("formattedAddress"),
-        opening_hours=_parse_opening_hours(raw.get("regularOpeningHours")),
-        est_visit_minutes=_estimate_visit_minutes(types, kind),
-        is_full_day=kind == "attraction" and bool(_FULL_DAY_TYPES & set(types)),
+        opening_hours=hours,
+        est_visit_minutes=minutes,
+        is_full_day=is_full_day,
     )
 
 

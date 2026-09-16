@@ -338,8 +338,11 @@ def _select_attractions(store: GroundingStore, full_days: int, brief: CityBrief 
     ranked = sorted(pool, key=lambda p: (0 if must_see(p.name) else 1, -p.value_score))
     full_day_pois = [p for p in ranked if p.full_day]
     normal_pois = [p for p in ranked if not p.full_day]
-    full_day_take = full_day_pois[:full_days]
-    normal_days = max(full_days - len(full_day_take), 0)
+    # Full-day outings must never eat every sightseeing day — a park-heavy city
+    # would then schedule only parks and zero ordinary sights. Cap them to about
+    # half the days; the rest always fill with ~5 regular attractions each.
+    full_day_take = full_day_pois[: full_days // 2]
+    normal_days = full_days - len(full_day_take)
     picked = full_day_take + normal_pois[: 5 * normal_days]
     must_see_pois = [p for p in ranked if must_see(p.name)]  # never drop an iconic sight
     return list(dict.fromkeys(p.id for p in picked + must_see_pois))

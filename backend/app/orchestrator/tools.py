@@ -102,6 +102,12 @@ TOOL_SCHEMAS = [
 ]
 
 
+def _norm(s: str) -> str:
+    """Normalized name key for dedup — lowercase alnum + spaces (mirrors the
+    pipeline's `_norm`)."""
+    return "".join(ch for ch in s.lower() if ch.isalnum() or ch.isspace()).strip()
+
+
 def _flight_summary(f: FlightOption) -> dict:
     return {
         "id": f.id,
@@ -236,6 +242,7 @@ class Toolbox:
         self.emit("attractions", "Hunting down the good stuff…")
         r = self.request
         seen_place_ids: set[str] = set()
+        seen_names: set[str] = set()  # Google returns one real place under several place_ids
         pois: list[POI] = []
         failures = 0
         for query in ATTRACTION_QUERIES:
@@ -246,9 +253,11 @@ class Toolbox:
                 self._note("places", "degraded", f"attraction search '{query}' failed: {exc}")
                 continue
             for p in found:
-                if p.place_id in seen_place_ids:
+                name = _norm(p.name)
+                if p.place_id in seen_place_ids or (name and name in seen_names):
                     continue
                 seen_place_ids.add(p.place_id)
+                seen_names.add(name)
                 pois.append(p)
         if failures == len(ATTRACTION_QUERIES):
             self._places_failed = True

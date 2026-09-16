@@ -133,6 +133,22 @@ def test_full_day_attraction_scheduled_alone():
     assert attractions == ["disney"]  # no other attractions share its day
 
 
+def test_evening_show_not_scheduled_past_day_end():
+    # A park-typed evening show that BUG 3's parser now leaves is_full_day=False
+    # (opens 17:30, ~3h) must fit inside the day — not run to 01:30 the way a
+    # mislabeled full-day outing did, bypassing the day-end check.
+    evening = make_poi(
+        "siam_niramit", 48.86, 2.35, visit=180,
+        hours=OpeningHours(windows={1: [(17 * 60 + 30, 20 * 60 + 30)]}),  # Tue 17:30–20:30
+    )
+    inp = build_input([evening], days=[DAY1])
+    result = solve(inp)
+    stop = next(s for d in result.days for s in d.stops if s.poi_id == "siam_niramit")
+    assert stop.arrive_min == 17 * 60 + 30       # waits for the evening opening
+    assert stop.depart_min == 20 * 60 + 30
+    assert stop.depart_min <= inp.day_end        # and still ends within the day
+
+
 def test_solver_is_deterministic():
     pois = [make_poi(f"p{i}", 48.85 + (i % 4) * 0.01, 2.30 + (i % 3) * 0.015) for i in range(8)]
     r1 = solve(build_input(pois))

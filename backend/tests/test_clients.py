@@ -124,6 +124,65 @@ def test_places_sends_field_mask(fixture_json):
     assert headers["X-Goog-Api-Key"] == "k"
 
 
+@respx.mock
+def test_full_day_requires_wide_daytime_hours():
+    # Google tags a ~3h evening show as `amusement_park`; the full-day flag must
+    # be corroborated by real opening hours, or it's scheduled as a whole day
+    # (the Siam Niramit 17:30→01:30 bug). Only wide daytime hours count.
+    raw = {
+        "places": [
+            {
+                "id": "evening01",
+                "displayName": {"text": "Siam Niramit Show", "languageCode": "en"},
+                "location": {"latitude": 7.88, "longitude": 98.39},
+                "rating": 4.5, "userRatingCount": 12000,
+                "types": ["amusement_park", "tourist_attraction", "point_of_interest"],
+                "regularOpeningHours": {"periods": [
+                    {"open": {"day": 2, "hour": 17, "minute": 30},
+                     "close": {"day": 2, "hour": 20, "minute": 30}},
+                ]},
+            },
+            {
+                "id": "waterpark01",
+                "displayName": {"text": "Splash Jungle Water Park", "languageCode": "en"},
+                "location": {"latitude": 8.11, "longitude": 98.30},
+                "rating": 4.3, "userRatingCount": 9000,
+                "types": ["water_park", "point_of_interest"],
+                "regularOpeningHours": {"periods": [
+                    {"open": {"day": 1, "hour": 10, "minute": 0},
+                     "close": {"day": 1, "hour": 22, "minute": 0}},
+                    {"open": {"day": 2, "hour": 10, "minute": 0},
+                     "close": {"day": 2, "hour": 22, "minute": 0}},
+                ]},
+            },
+            {
+                "id": "mystery01",
+                "displayName": {"text": "Fantasy Theme Park", "languageCode": "en"},
+                "location": {"latitude": 7.90, "longitude": 98.35},
+                "rating": 4.1, "userRatingCount": 3000,
+                "types": ["amusement_park", "point_of_interest"],
+            },
+        ]
+    }
+    respx.post(SEARCH_TEXT_URL).respond(json=raw)
+    pois = PlacesClient(api_key="k", **NO_BACKOFF).search_attractions("Phuket", "top attractions")
+
+    evening = next(p for p in pois if p.name == "Siam Niramit Show")
+    assert evening.is_full_day is False          # park type, but opens 17:30 → not a whole day
+    assert evening.full_day is False             # bounded below the full-day minute threshold
+    assert evening.est_visit_minutes == 180      # bounded multi-hour visit, not 480
+
+    water = next(p for p in pois if "Water Park" in p.name)
+    assert water.is_full_day is True             # opens 10:00 with a wide window → genuine full day
+    assert water.full_day is True
+    assert water.est_visit_minutes == 420        # water_park heuristic preserved
+
+    mystery = next(p for p in pois if p.name == "Fantasy Theme Park")
+    assert mystery.opening_hours is None
+    assert mystery.is_full_day is False          # unknown hours → conservative, not a whole day
+    assert mystery.full_day is False
+
+
 # ---------------------------------------------------------------- routes
 POINTS = [
     LatLng(lat=48.8606, lng=2.3376),
